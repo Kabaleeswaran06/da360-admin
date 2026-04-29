@@ -1,0 +1,99 @@
+/* ── content-manager-additions.css ──────────────────────────────────────────
+   Add these rules into your existing stylesheet (or include as a separate file).
+   They cover: editable textareas, save bar, alert banners.
+────────────────────────────────────────────────────────────────────────────── */
+
+/* ── Editable textarea inside each field-card ──────────────────────────────── */
+.field-textarea {
+  width: 100%;
+  min-height: 72px;
+  padding: 10px 12px;
+  margin-top: 8px;
+  border: 1.5px solid color-mix(in srgb, var(--accent-color) 30%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--accent-color) 4%, var(--surface));
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  line-height: 1.55;
+  resize: vertical;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+
+.field-textarea:focus {
+  outline: none;
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-color) 15%, transparent);
+}
+
+.field-textarea.empty {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.field-textarea::placeholder {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* ── Save bar at the bottom of the edit form ────────────────────────────────── */
+.save-bar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 24px 0 8px;
+}
+
+.btn-save {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 28px;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.btn-save:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.save-hint {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+/* ── Alert banner (success / error after save) ──────────────────────────────── */
+.alert {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 18px;
+  border-radius: 10px;
+  margin-bottom: 20px;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.alert-success {
+  background: color-mix(in srgb, #22c55e 12%, var(--surface));
+  border: 1px solid color-mix(in srgb, #22c55e 40%, transparent);
+  color: #16a34a;
+}
+
+.alert-error {
+  background: color-mix(in srgb, #ef4444 12%, var(--surface));
+  border: 1px solid color-mix(in srgb, #ef4444 40%, transparent);
+  color: #dc2626;
+}
+
+/* ── field-card label element (was a div, now a label for a11y) ─────────────── */
+.field-label-text {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
