@@ -5,9 +5,32 @@ require_once __DIR__ . '/config/db.php';
 header('Content-Type: application/json');
 
 // Must be logged in
-if (!isLoggedIn()) {
-  echo json_encode(['success' => false, 'message' => 'Unauthorized']);
- exit;
+define('VALID_API_KEYS', [
+    '5678DA360',  
+]);
+
+function isAuthorized(): bool {
+    if (isLoggedIn()) return true;
+
+    // Authorization: Bearer <key>
+    $authHeader = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
+    if (preg_match('/^Bearer\s+(.+)$/i', $authHeader, $m)) {
+        return in_array($m[1], VALID_API_KEYS, true);
+    }
+
+    // Fallback: ?api_key=<key>  (simpler but less secure)
+    $queryKey = $_GET['api_key'] ?? '';
+    if ($queryKey !== '' && in_array($queryKey, VALID_API_KEYS, true)) {
+        return true;
+    }
+
+    return false;
+}
+
+if (!isAuthorized()) {
+    http_response_code(401);
+    echo json_encode(['success' => false, 'message' => 'Unauthorized']);
+    exit;
 }
 
 $action = $_GET['action'] ?? '';
