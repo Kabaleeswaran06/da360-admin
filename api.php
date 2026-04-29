@@ -4,27 +4,20 @@ require_once __DIR__ . '/config/db.php';
 
 header('Content-Type: application/json');
 
-// Must be logged in
+// ── Authentication ─────────────────────────────────────────────────────────
+// Accepts: (1) valid session (web app), (2) Bearer token or ?api_key= (external)
 define('VALID_API_KEYS', [
-    '5678DA360',  
+    'YOUR_API_KEY_HERE', // 🔑 Replace with your real API key
 ]);
 
 function isAuthorized(): bool {
     if (isLoggedIn()) return true;
-
-    // Authorization: Bearer <key>
-    $authHeader = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
-    if (preg_match('/^Bearer\s+(.+)$/i', $authHeader, $m)) {
+    $header = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
+    if (preg_match('/^Bearer\s+(.+)$/i', $header, $m)) {
         return in_array($m[1], VALID_API_KEYS, true);
     }
-
-    // Fallback: ?api_key=<key>  (simpler but less secure)
     $queryKey = $_GET['api_key'] ?? '';
-    if ($queryKey !== '' && in_array($queryKey, VALID_API_KEYS, true)) {
-        return true;
-    }
-
-    return false;
+    return $queryKey !== '' && in_array($queryKey, VALID_API_KEYS, true);
 }
 
 if (!isAuthorized()) {
@@ -125,6 +118,85 @@ try {
         } else {
             echo json_encode(['success' => false, 'message' => 'No content found for this combination.']);
         }
+        exit;
+    }
+
+    // ── GET ALL LOCATIONS CONTENT FOR A COURSE (single API call) ─────────────
+    // Returns every location's content for the given course_id in one response.
+    // The location slug (lowercased label, spaces replaced with _) is used as
+    // the key so the Next.js side can map it directly to LocationKey.
+    //
+    // GET /api.php?action=get_course_content&course_id=1&api_key=XXX
+    //
+    // Response shape:
+    // {
+    //   "success": true,
+    //   "course_label": "...",
+    //   "locations": {
+    //     "global":       { ...fields },
+    //     "bangalore":    { ...fields },
+    //     "jayanagar":    { ...fields },
+    //     ...
+    //   }
+    // }
+    if ($action === 'get_course_content') {
+        $courseId = (int)($_GET['course_id'] ?? 0);
+        if (!$courseId) {
+            echo json_encode(['success' => false, 'message' => 'Missing course_id']);
+            exit;
+        }
+
+        // Course label
+        $stmt = $db->prepare("SELECT label FROM courses WHERE id = ? AND is_active = 1 LIMIT 1");
+        $stmt->execute([$courseId]);
+        $courseLabel = $stmt->fetchColumn();
+        if (!$courseLabel) {
+            echo json_encode(['success' => false, 'message' => 'Course not found']);
+            exit;
+        }
+
+        // Fetch all active locations with their content (LEFT JOIN so locations
+        // with no content row still appear with empty strings)
+        $contentFields = implode(', ', array_map(fn($k) => "cc.`$k`", array_keys($fieldMeta)));
+        $stmt = $db->prepare("
+            SELECT
+                l.id            AS location_id,
+                l.label         AS location_label,
+                l.slug          AS location_slug,
+                $contentFields
+            FROM locations l
+            LEFT JOIN course_content cc
+                   ON cc.course_id   = :cid
+                  AND cc.location_id = l.id
+            WHERE l.is_active = 1
+            ORDER BY l.sort_order, l.label
+        ");
+        $stmt->execute([':cid' => $courseId]);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Build keyed object — use slug if available, else derive from label
+        $locations = [];
+        foreach ($rows as $row) {
+            // Use DB slug column if present, otherwise derive from label
+            $slug = !empty($row['location_slug'])
+                ? $row['location_slug']
+                : strtolower(preg_replace('/\s+/', '_', trim($row['location_label'])));
+
+            $entry = [];
+            foreach (array_keys($fieldMeta) as $field) {
+                $entry[$field] = $row[$field] ?? '';
+            }
+            $entry['location_id']    = (int)$row['location_id'];
+            $entry['location_label'] = $row['location_label'];
+
+            $locations[$slug] = $entry;
+        }
+
+        echo json_encode([
+            'success'      => true,
+            'course_label' => $courseLabel,
+            'locations'    => $locations,
+        ]);
         exit;
     }
 
