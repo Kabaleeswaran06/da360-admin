@@ -359,7 +359,6 @@ try {
               </svg>
               <?= empty($content) ? 'Create Content' : 'Save Changes' ?>
             </button>
-            <span class="save-hint">Changes are saved directly to the database.</span>
           </div>
         </form>
 
