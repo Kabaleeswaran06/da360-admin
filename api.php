@@ -59,6 +59,10 @@ $action = $_GET['action'] ?? '';
 // Column names match schema.sql exactly.
 // This is the single source of truth — used for rendering AND saving.
 $fieldMeta = [
+    'leadcaptureonetitle'    => ['label' => 'Lead Capture Title 1',      'icon' => '📣', 'section' => 'Lead Capture'],
+    'leadcapturetwotitle'    => ['label' => 'Lead Capture Title 2',      'icon' => '📣', 'section' => 'Lead Capture'],
+    'leadcapturethirdtitle'  => ['label' => 'Lead Capture Title 3',      'icon' => '📢', 'section' => 'Lead Capture'],
+    'leadcapturesubtitle'    => ['label' => 'Lead Capture Subtitle',     'icon' => '💬', 'section' => 'Lead Capture'],
     'lifeatda360'            => ['label' => 'Life at DA360',             'icon' => '🏫', 'section' => 'Campus & Culture'],
     'trustedbylearners'      => ['label' => 'Trusted by Learners',       'icon' => '🤝', 'section' => 'Campus & Culture'],
     'coursehilightcatergory' => ['label' => 'Course Highlight Category', 'icon' => '⭐', 'section' => 'Course Info'],
@@ -70,9 +74,6 @@ $fieldMeta = [
     'casestudeiessubheading' => ['label' => 'Case Studies Subheading',   'icon' => '📋', 'section' => 'Case Studies'],
     'peoplesliderdesc'       => ['label' => 'People Slider Description', 'icon' => '👥', 'section' => 'Social Proof'],
     'latestblogheading'      => ['label' => 'Latest Blog Heading',       'icon' => '✍️', 'section' => 'Content'],
-    'leadcapturetwotitle'    => ['label' => 'Lead Capture Title 2',      'icon' => '📣', 'section' => 'Lead Capture'],
-    'leadcapturethirdtitle'  => ['label' => 'Lead Capture Title 3',      'icon' => '📢', 'section' => 'Lead Capture'],
-    'leadcapturesubtitle'    => ['label' => 'Lead Capture Subtitle',     'icon' => '💬', 'section' => 'Lead Capture'],
     'cohortheading'          => ['label' => 'Cohort Heading',            'icon' => '📅', 'section' => 'Batches'],
     'storyheading'           => ['label' => 'Story Heading',             'icon' => '🌟', 'section' => 'Social Proof'],
     'storydesc'              => ['label' => 'Story Description',         'icon' => '💫', 'section' => 'Social Proof'],
@@ -80,6 +81,8 @@ $fieldMeta = [
     'roadmapdesc'            => ['label' => 'Roadmap Description',       'icon' => '📍', 'section' => 'Learning Path'],
     'programskillheading'    => ['label' => 'Program Skills Heading',    'icon' => '🎯', 'section' => 'Skills'],
     'programskillsubheading' => ['label' => 'Program Skills Subheading', 'icon' => '🔧', 'section' => 'Skills'],
+    'feestructureheading'    => ['label' => 'Fee Structure Heading',    'icon' => '🎯', 'section' => 'BBA & MBA'],
+    'feestructuresubheading' => ['label' => 'Fee Structure Subheading', 'icon' => '🔧', 'section' => 'BBA & MBA'],
 ];
 
 $sectionAccents = [
