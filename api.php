@@ -301,7 +301,7 @@ try {
         </div>
 
         <div class="stats-bar">
-          <div class="stat-chip"><strong><?= $totalFields ?></strong>&nbsp;Total Fields</div>
+          <div class="stat-chip"><strong><?= $totalFields ?></strong>&nbsp;Total Fields-s</div>
           <div class="stat-chip"><strong><?= $filledFields ?></strong>&nbsp;Filled</div>
           <div class="stat-chip"><strong><?= $totalFields - $filledFields ?></strong>&nbsp;Empty</div>
           <div class="stat-chip"><strong><?= count($sections) ?></strong>&nbsp;Sections</div>
