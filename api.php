@@ -1,4 +1,31 @@
 <?php
+// ── CORS — allow your Next.js dev server to call this API ─────────────────────
+// In production replace '*' / 'http://localhost:3000' with your actual domain.
+$allowedOrigins = [
+    'http://localhost:3000',   // Next.js dev (turbopack)
+    'http://localhost',   // fallback port
+    // 'https://yourproductiondomain.com',  ← uncomment when live
+];
+
+$origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+if (in_array($origin, $allowedOrigins, true)) {
+    header("Access-Control-Allow-Origin: $origin");
+    header('Access-Control-Allow-Credentials: true');   // needed for session cookies
+} else {
+    // During local dev you can temporarily allow all origins by commenting
+    // the block above and uncommenting the next line:
+    // header('Access-Control-Allow-Origin: *');
+}
+
+header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type');
+
+// Handle preflight (OPTIONS) request sent by the browser before POST
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(204);
+    exit;
+}
+
 require_once __DIR__ . '/config/auth.php';
 require_once __DIR__ . '/config/db.php';
 
@@ -7,7 +34,7 @@ header('Content-Type: application/json');
 // ── Authentication ─────────────────────────────────────────────────────────
 // Accepts: (1) valid session (web app), (2) Bearer token or ?api_key= (external)
 define('VALID_API_KEYS', [
-    'YOUR_API_KEY_HERE', // 🔑 Replace with your real API key
+    'da360-secret-key-2024', // 🔑 Change this to any secret string you choose
 ]);
 
 function isAuthorized(): bool {
