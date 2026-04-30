@@ -63,8 +63,13 @@ $fieldMeta = [
     'leadcapturetwotitle'    => ['label' => 'Lead Capture Title 2',      'icon' => '📣', 'section' => 'Lead Capture'],
     'leadcapturethirdtitle'  => ['label' => 'Lead Capture Title 3',      'icon' => '📢', 'section' => 'Lead Capture'],
     'leadcapturesubtitle'    => ['label' => 'Lead Capture Subtitle',     'icon' => '💬', 'section' => 'Lead Capture'],
+    'cohortheading'          => ['label' => 'Cohort Heading',            'icon' => '📅', 'section' => 'Batches'],
+    'storyheading'           => ['label' => 'Story Heading',             'icon' => '🌟', 'section' => 'Success Stories'],
+    'storydesc'              => ['label' => 'Story Description',         'icon' => '💫', 'section' => 'Success Stories'],
     'lifeatda360'            => ['label' => 'Life at DA360',             'icon' => '🏫', 'section' => 'Campus & Culture'],
     'trustedbylearners'      => ['label' => 'Trusted by Learners',       'icon' => '🤝', 'section' => 'Campus & Culture'],
+    'programskillheading'    => ['label' => 'Program Skills Heading',    'icon' => '🎯', 'section' => 'Skills'],
+    'programskillsubheading' => ['label' => 'Program Skills Subheading', 'icon' => '🔧', 'section' => 'Skills'],
     'coursehilightcatergory' => ['label' => 'Course Highlight Category', 'icon' => '⭐', 'section' => 'Course Info'],
     'toolsheading'           => ['label' => 'Tools Heading',             'icon' => '🛠️', 'section' => 'Course Info'],
     'toolsdescription'       => ['label' => 'Tools Description',         'icon' => '📝', 'section' => 'Course Info'],
@@ -74,13 +79,8 @@ $fieldMeta = [
     'casestudeiessubheading' => ['label' => 'Case Studies Subheading',   'icon' => '📋', 'section' => 'Case Studies'],
     'peoplesliderdesc'       => ['label' => 'People Slider Description', 'icon' => '👥', 'section' => 'Social Proof'],
     'latestblogheading'      => ['label' => 'Latest Blog Heading',       'icon' => '✍️', 'section' => 'Content'],
-    'cohortheading'          => ['label' => 'Cohort Heading',            'icon' => '📅', 'section' => 'Batches'],
-    'storyheading'           => ['label' => 'Story Heading',             'icon' => '🌟', 'section' => 'Social Proof'],
-    'storydesc'              => ['label' => 'Story Description',         'icon' => '💫', 'section' => 'Social Proof'],
     'roadmapheader'          => ['label' => 'Roadmap Header',            'icon' => '🗺️', 'section' => 'Learning Path'],
     'roadmapdesc'            => ['label' => 'Roadmap Description',       'icon' => '📍', 'section' => 'Learning Path'],
-    'programskillheading'    => ['label' => 'Program Skills Heading',    'icon' => '🎯', 'section' => 'Skills'],
-    'programskillsubheading' => ['label' => 'Program Skills Subheading', 'icon' => '🔧', 'section' => 'Skills'],
     'feestructureheading'    => ['label' => 'Fee Structure Heading',    'icon' => '🎯', 'section' => 'BBA & MBA'],
     'feestructuresubheading' => ['label' => 'Fee Structure Subheading', 'icon' => '🔧', 'section' => 'BBA & MBA'],
 ];
@@ -301,7 +301,7 @@ try {
         </div>
 
         <div class="stats-bar">
-          <div class="stat-chip"><strong><?= $totalFields ?></strong>&nbsp;Total Fields-s</div>
+          <div class="stat-chip"><strong><?= $totalFields ?></strong>&nbsp;Total Fields</div>
           <div class="stat-chip"><strong><?= $filledFields ?></strong>&nbsp;Filled</div>
           <div class="stat-chip"><strong><?= $totalFields - $filledFields ?></strong>&nbsp;Empty</div>
           <div class="stat-chip"><strong><?= count($sections) ?></strong>&nbsp;Sections</div>
