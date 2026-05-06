@@ -171,9 +171,16 @@ try {
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         $faqData = array();
+        $lastUpdated = null;
         foreach ($rows as $row) {
             $faqData[$row['category']][$row['sort_order']] = $row;
+            if (!empty($row['updated_by'])) {
+                $lastUpdated = $row;  // last row will be most recent
+            }
         }
+        $lastRow   = !empty($rows) ? end($rows) : null;
+        $updatedBy = $lastRow['updated_by'] ?? null;
+        $updatedAt = $lastRow['updated_at'] ?? null;
 
         $totalFaqs  = count($categories) * 10;
         $filledFaqs = count($rows);
@@ -204,8 +211,8 @@ try {
         /* Stats bar */
         .fmr .stats-bar { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:24px; }
         .fmr .stat-chip {
-            background:#1e293b; border:1px solid #334155; border-radius:8px;
-            padding:8px 16px; font-size:13px; color:#94a3b8;
+            background:#fff; border:1px solid #334155; border-radius:8px;
+            padding:8px 16px; font-size:13px; color:#000;
             display:flex; align-items:center; gap:6px;
         }
         .fmr .stat-chip strong { color:#f1f5f9; font-size:15px; }
@@ -416,10 +423,17 @@ try {
   </div>
 
   <div class="stats-bar">
-    <div class="stat-chip"><strong><?= $totalFaqs ?></strong>&nbsp;Total Slots</div>
-    <div class="stat-chip"><strong><?= $filledFaqs ?></strong>&nbsp;Filled</div>
-    <div class="stat-chip"><strong><?= $totalFaqs - $filledFaqs ?></strong>&nbsp;Empty</div>
-    <div class="stat-chip"><strong><?= count($categories) ?></strong>&nbsp;Categories</div>
+    <div class="stat-chip"><b><?= $totalFaqs ?></b>&nbsp;Total Slots</div>
+    <div class="stat-chip"><b><?= $filledFaqs ?></b>&nbsp;Filled</div>
+    <div class="stat-chip"><b><?= $totalFaqs - $filledFaqs ?></b>&nbsp;Empty</div>
+    <div class="stat-chip"><b><?= count($categories) ?></b>&nbsp;Categories</div>
+
+    <?php if ($lastUpdated && !empty($lastUpdated['updated_by'])): ?>
+    <div class="stat-chip">
+        ✏️ Last updated by <b>&nbsp;<?= htmlspecialchars($lastUpdated['updated_by']) ?></b>
+        &nbsp;on&nbsp;<b><?= htmlspecialchars($lastUpdated['updated_at']) ?></b>
+    </div>
+    <?php endif; ?>
   </div>
 
   <div class="faq-categories">
@@ -687,6 +701,12 @@ JSCODE;
         $answer     = trim($_POST['answer']        ?? '');
         $isActive   = isset($_POST['is_active']) ? 1 : 0;
 
+        // ✅ Capture who is saving
+        $user      = $_SESSION['da360_user'] ?? [];
+        $updatedBy = !empty($user['name'])
+                ? $user['name'] . ' (' . ($user['role'] ?? '') . ')'
+                : 'unknown';
+
         if (!$courseId || !$locationId || !in_array($category, $categories) || $sortOrder < 1 || $sortOrder > 10) {
             echo json_encode(['success' => false, 'message' => 'Invalid parameters']);
             exit;
@@ -699,14 +719,15 @@ JSCODE;
 
         $sql = "
             INSERT INTO course_faqs
-                (course_id, location_id, category, sort_order, question, answer, is_active, created_at, updated_at)
+                (course_id, location_id, category, sort_order, question, answer, is_active, created_at, updated_at, updated_by)
             VALUES
-                (:course_id, :location_id, :category, :sort_order, :question, :answer, :is_active, NOW(), NOW())
+                (:course_id, :location_id, :category, :sort_order, :question, :answer, :is_active, NOW(), NOW(), :updated_by)
             ON DUPLICATE KEY UPDATE
                 question   = VALUES(question),
                 answer     = VALUES(answer),
                 is_active  = VALUES(is_active),
-                updated_at = NOW()
+                updated_at = NOW(),
+                updated_by = VALUES(updated_by)
         ";
 
         $stmt = $db->prepare($sql);
@@ -718,16 +739,18 @@ JSCODE;
             'question'    => $question,
             'answer'      => $answer,
             'is_active'   => $isActive,
+            'updated_by'  => $updatedBy,  
         ));
 
         $newId    = $db->lastInsertId();
         $affected = $stmt->rowCount();
 
         echo json_encode(array(
-            'success'  => true,
-            'message'  => 'FAQ saved',
-            'id'       => $newId ?: null,
-            'affected' => $affected,
+            'success'    => true,
+            'message'    => 'FAQ saved',
+            'id'         => $newId ?: null,
+            'affected'   => $affected,
+            'updated_by' => $updatedBy,   
         ));
         exit;
     }
