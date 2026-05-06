@@ -703,9 +703,9 @@ JSCODE;
 
         // ✅ Capture who is saving
         $user      = $_SESSION['da360_user'] ?? [];
-        $updatedBy = !empty($user['name'])
-                ? $user['name'] . ' (' . ($user['role'] ?? '') . ')'
-                : 'unknown';
+        $updatedBy = $_SESSION['da360_user']['name'] 
+          ?? $_SESSION['da360_user']['username'] 
+          ?? 'unknown';
 
         if (!$courseId || !$locationId || !in_array($category, $categories) || $sortOrder < 1 || $sortOrder > 10) {
             echo json_encode(['success' => false, 'message' => 'Invalid parameters']);
