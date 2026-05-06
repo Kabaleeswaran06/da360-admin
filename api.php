@@ -119,7 +119,6 @@ try {
         echo json_encode(['success' => true, 'locations' => $stmt->fetchAll(PDO::FETCH_ASSOC)]);
         exit;
     }
-
     // ── GET CONTENT (original — kept for backward compatibility) ──────────────
     if ($action === 'get_content') {
         $courseId   = (int)($_GET['course_id']   ?? 0);
@@ -274,6 +273,8 @@ try {
         $stmt->execute([$courseId, $locationId]);
         $content = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
 
+        $updatedBy  = $content['updated_by'] ?? null;
+        $updatedAt  = $content['updated_at'] ?? null;
         // Stats
         $totalFields  = count($fieldMeta);
         $filledFields = count(array_filter(
@@ -301,11 +302,20 @@ try {
         </div>
 
         <div class="stats-bar">
-          <div class="stat-chip"><strong><?= $totalFields ?></strong>&nbsp;Total Fields</div>
-          <div class="stat-chip"><strong><?= $filledFields ?></strong>&nbsp;Filled</div>
-          <div class="stat-chip"><strong><?= $totalFields - $filledFields ?></strong>&nbsp;Empty</div>
-          <div class="stat-chip"><strong><?= count($sections) ?></strong>&nbsp;Sections</div>
-        </div>
+            <div class="stat-chip"><b><?= $totalFields ?></b>&nbsp;Total Fields</div>
+            <div class="stat-chip"><b><?= $filledFields ?></b>&nbsp;Filled</div>
+            <div class="stat-chip"><b><?= $totalFields - $filledFields ?></b>&nbsp;Empty</div>
+            <div class="stat-chip"><b><?= count($sections) ?></b>&nbsp;Sections</div>
+
+            <?php if ($updatedBy): ?>
+            <div class="stat-chip">
+                ✏️ Last updated by &nbsp;<b><?= htmlspecialchars($updatedBy) ?></b>
+                <?php if ($updatedAt): ?>
+                &nbsp;on&nbsp;<b><?= htmlspecialchars($updatedAt) ?></b>
+                <?php endif; ?>
+            </div>
+            <?php endif; ?>
+            </div>
 
         <form id="content-form">
           <input type="hidden" name="course_id"   value="<?= $courseId ?>">
@@ -372,6 +382,7 @@ try {
     // Uses INSERT ... ON DUPLICATE KEY UPDATE, which is safe because
     // course_content has UNIQUE KEY (course_id, location_id) in schema.sql.
     // Only the 21 whitelisted field keys from $fieldMeta are ever written.
+    // ── SAVE CONTENT ──────────────────────────────────────────────────────────
     if ($action === 'save_content' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         $courseId   = (int)($_POST['course_id']   ?? 0);
         $locationId = (int)($_POST['location_id'] ?? 0);
@@ -381,36 +392,45 @@ try {
             exit;
         }
 
-        // Collect only whitelisted fields — never trust raw $_POST keys
+        // ✅ Capture who is saving
+        $updatedBy = $_SESSION['da360_user']['name'] 
+          ?? $_SESSION['da360_user']['username'] 
+          ?? 'unknown';
+
+        // Collect only whitelisted fields
         $fields = [];
         foreach (array_keys($fieldMeta) as $key) {
             $fields[$key] = trim($_POST[$key] ?? '');
         }
 
-        // Build column and placeholder lists for INSERT
         $colList = implode(', ', array_map(fn($k) => "`$k`", array_keys($fields)));
         $phList  = implode(', ', array_map(fn($k) => ":$k", array_keys($fields)));
-
-        // Build SET clause for ON DUPLICATE KEY UPDATE (skip course_id / location_id)
         $updateClauses = implode(', ', array_map(fn($k) => "`$k` = VALUES(`$k`)", array_keys($fields)));
 
         $sql = "
             INSERT INTO course_content
-                (course_id, location_id, $colList, created_at, updated_at)
+                (course_id, location_id, $colList, created_at, updated_at, updated_by)
             VALUES
-                (:course_id, :location_id, $phList, NOW(), NOW())
+                (:course_id, :location_id, $phList, NOW(), NOW(), :updated_by)
             ON DUPLICATE KEY UPDATE
                 $updateClauses,
-                updated_at = NOW()
+                updated_at = NOW(),
+                updated_by = VALUES(updated_by)
         ";
 
         $stmt = $db->prepare($sql);
         $stmt->execute(array_merge($fields, [
             'course_id'   => $courseId,
             'location_id' => $locationId,
+            'updated_by'  => $updatedBy,   // ✅ only passed once now
         ]));
+        
 
-        echo json_encode(['success' => true, 'message' => 'Content saved successfully']);
+        echo json_encode([
+            'success'    => true,
+            'message'    => 'Content saved successfully',
+            'updated_by' => $updatedBy,    // ✅ return it so UI can show it
+        ]);
         exit;
     }
 
