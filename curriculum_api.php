@@ -476,7 +476,7 @@ try {
               <div class="module-num"><?= $mod['number'] ?></div>
               <span class="module-title-text"><?= htmlspecialchars($mod['title'] ?: 'Module ' . $mod['number']) ?></span>
             </div>
-            <div style="display:flex;gap:8px;" onclick="event.stopPropagation()">
+            <div style="display:flex;gap:8px;" >
               <button class="btn btn-success btn-sm" data-action="save-module" data-module-index="<?= $mi ?>">💾 Save</button>
               <button class="btn btn-danger btn-sm" data-action="delete-module">🗑</button>
             </div>
@@ -530,41 +530,156 @@ try {
 <?php
         $html = ob_get_clean();
 
-        // ── Inline JS ─────────────────────────────────────────────────────
+// ── Inline JS ─────────────────────────────────────────────────────
         $js = <<<'JSCODE'
 (function () {
-    var root     = document.getElementById('cmr-root');
-    var courseId = root ? root.dataset.course   : 0;
-    var locId    = root ? root.dataset.location : 0;
 
-    function showToast(msg) {
-        var t = document.getElementById('toast');
-        if (!t) return;
-        t.textContent = msg;
-        t.className = 'toast show';
-        clearTimeout(t._tid);
-        t._tid = setTimeout(function () { t.className = 'toast'; }, 3000);
+    // ✅ Remove previous listener if Load was clicked again
+    if (window._cmrClickHandler) {
+        document.removeEventListener('click', window._cmrClickHandler, false);
     }
 
-    document.addEventListener('click', function (e) {
+    window._cmrClickHandler = function (e) {
 
-        // ── Section toggle ─────────────────────────────────────────────────
-        var secHdr = e.target.closest('[data-toggle-sec]');
-        if (secHdr) {
-            var body = document.getElementById('sec-body-' + secHdr.dataset.toggleSec);
-            if (body) body.classList.toggle('open');
+        // ✅ Read fresh on every click — guaranteed cmr-root exists
+        var root = document.getElementById('cmr-root');
+        if (!root) return;
+        var courseId = root.dataset.course;
+        var locId    = root.dataset.location;
+
+        // ══════════════════════════════════════════════════════════════════
+        // ✅ BUTTON ACTIONS FIRST — before any toggle handlers intercept them
+        // ══════════════════════════════════════════════════════════════════
+
+       // ── SAVE MODULE ───────────────────────────────────────────────────
+        var saveMod = e.target.closest('[data-action="save-module"]');
+        if (saveMod) {
+            var mi       = saveMod.dataset.moduleIndex;
+            var modBlock = saveMod.closest('.module-block');   // ← renamed
+            var mid      = modBlock.dataset.moduleId;
+            var num      = modBlock.dataset.number;
+            var title    = modBlock.querySelector('.mod-title').value.trim();
+
+            if (!title) { showToast('⚠️ Module title is required.'); return; }
+
+            var badges = {};
+            modBlock.querySelectorAll('.badge-input').forEach(function(inp) {
+                badges[inp.dataset.type] = parseInt(inp.value) || 0;
+            });
+
+            var topics = [];
+            modBlock.querySelectorAll('.topic-input').forEach(function(inp, idx) {
+                var v = inp.value.trim();
+                if (v) topics.push({ sort_order: idx + 1, topic: v });
+            });
+
+            var fd = new FormData();
+            fd.append('module_id',  mid);
+            fd.append('course_id',  courseId);
+            fd.append('number',     num);
+            fd.append('sort_order', parseInt(mi) + 1);
+            fd.append('title',      title);
+            fd.append('badges',     JSON.stringify(badges));
+            fd.append('topics',     JSON.stringify(topics));
+
+            modBlock.classList.add('saving');
+            fetch('/da360-admin/curriculum_api.php?action=save_module', { method: 'POST', body: fd })
+                .then(function(r) { return r.json(); })
+                .then(function(d) {
+                    modBlock.classList.remove('saving');
+                    if (d.success) {
+                        modBlock.dataset.moduleId = d.module_id;
+                        modBlock.querySelector('.module-title-text').textContent = title;
+                        modBlock.classList.add('saved');
+                        showToast('✅ Module ' + num + ' saved!');
+                        setTimeout(function() { modBlock.classList.remove('saved'); }, 2200);
+                    } else {
+                        showToast('❌ ' + (d.message || 'Error'));
+                    }
+                })
+                .catch(function() {
+                    modBlock.classList.remove('saving');
+                    showToast('❌ Network error.');
+                });
             return;
         }
 
-        // ── Module header toggle ───────────────────────────────────────────
-        var modHdr = e.target.closest('[data-toggle-module]');
-        if (modHdr && !e.target.closest('button')) {
-            var mbody = document.getElementById('mod-body-' + modHdr.dataset.toggleModule);
-            if (mbody) mbody.classList.toggle('open');
+        // ── DELETE MODULE ─────────────────────────────────────────────────
+        var delMod = e.target.closest('[data-action="delete-module"]');
+        if (delMod) {
+            var delModBlock = delMod.closest('.module-block');   // ← renamed
+            var mid         = delModBlock.dataset.moduleId;
+            if (mid && mid !== '0') {
+                if (!confirm('Delete this module for ALL locations?')) return;
+                var fd = new FormData();
+                fd.append('module_id', mid);
+                fd.append('course_id', courseId);
+                fetch('/da360-admin/curriculum_api.php?action=delete_module', { method: 'POST', body: fd })
+                    .then(function(r) { return r.json(); })
+                    .then(function(d) {
+                        if (d.success) { delModBlock.remove(); showToast('🗑️ Module removed.'); }
+                        else showToast('❌ ' + (d.message || 'Error'));
+                    });
+            } else { delModBlock.remove(); }
             return;
         }
 
-        // ── HEADING SAVE (location-specific) ──────────────────────────────
+        // ── DELETE BATCH ──────────────────────────────────────────────────
+        var delBatch = e.target.closest('[data-action="delete-batch"]');
+        if (delBatch) {
+            var delBatchBlock = delBatch.closest('.batch-block');   // ← renamed
+            var bid           = delBatchBlock.dataset.batchId;
+            if (bid && bid !== '0') {
+                if (!confirm('Delete this batch and all its slots?')) return;
+                var fd = new FormData();
+                fd.append('batch_id',    bid);
+                fd.append('course_id',   courseId);
+                fd.append('location_id', locId);
+                fetch('/da360-admin/curriculum_api.php?action=delete_batch', { method: 'POST', body: fd })
+                    .then(function(r) { return r.json(); })
+                    .then(function(d) {
+                        if (d.success) { delBatchBlock.remove(); showToast('🗑️ Batch removed.'); }
+                        else showToast('❌ ' + (d.message || 'Error'));
+                    });
+            } else { delBatchBlock.remove(); }
+            return;
+        }
+
+        // ── SAVE BATCH ────────────────────────────────────────────────────
+        var saveBatch = e.target.closest('[data-action="save-batch"]');
+        if (saveBatch) {
+            var saveBatchBlock = saveBatch.closest('.batch-block');   // ← renamed
+            var bid            = saveBatchBlock.dataset.batchId;
+            var label          = saveBatchBlock.querySelector('.batch-label-select').value;
+            var slots          = [];
+            saveBatchBlock.querySelectorAll('.slot-input').forEach(function(inp) {
+                var v = inp.value.trim(); if (v) slots.push(v);
+            });
+            var fd = new FormData();
+            fd.append('batch_id',    bid);
+            fd.append('course_id',   courseId);
+            fd.append('location_id', locId);
+            fd.append('label',       label);
+            fd.append('slots',       JSON.stringify(slots));
+            fetch('/da360-admin/curriculum_api.php?action=save_batch', { method: 'POST', body: fd })
+                .then(function(r) { return r.json(); })
+                .then(function(d) {
+                    if (d.success) { saveBatchBlock.dataset.batchId = d.batch_id; showToast('✅ Batch saved!'); }
+                    else showToast('❌ ' + (d.message || 'Error'));
+                })
+                .catch(function() { showToast('❌ Network error.'); });
+            return;
+        }
+
+        // ── DELETE SLOT ───────────────────────────────────────────────────
+        var delSlot = e.target.closest('[data-action="delete-slot"]');
+        if (delSlot) { delSlot.closest('.slot-row').remove(); return; }
+
+        // ── DELETE TOPIC ──────────────────────────────────────────────────
+        var delTopic = e.target.closest('[data-action="delete-topic"]');
+        if (delTopic) { delTopic.closest('.topic-row').remove(); return; }
+
+        // ── SAVE HEADING ──────────────────────────────────────────────────
         if (e.target.closest('[data-action="save-heading"]')) {
             var heading = document.getElementById('curr-heading').value.trim();
             var desc    = document.getElementById('curr-desc').value.trim();
@@ -573,16 +688,38 @@ try {
             fd.append('location_id', locId);
             fd.append('heading',     heading);
             fd.append('description', desc);
-            fetch('/da360-admin/curriculum_api.php?action=save_heading', { method:'POST', body:fd })
-                .then(function(r){ return r.json(); })
-                .then(function(d){
-                    showToast(d.success ? '✅ Heading saved!' : '❌ ' + (d.message || 'Error'));
-                })
-                .catch(function(){ showToast('❌ Network error.'); });
+            fetch('/da360-admin/curriculum_api.php?action=save_heading', { method: 'POST', body: fd })
+                .then(function(r) { return r.json(); })
+                .then(function(d) { showToast(d.success ? '✅ Heading saved!' : '❌ ' + (d.message || 'Error')); })
+                .catch(function() { showToast('❌ Network error.'); });
             return;
         }
 
-        // ── ADD BATCH ──────────────────────────────────────────────────────
+        // ══════════════════════════════════════════════════════════════════
+        // TOGGLE HANDLERS — after all button checks
+        // ══════════════════════════════════════════════════════════════════
+
+        // ── Section toggle ────────────────────────────────────────────────
+        var secHdr = e.target.closest('[data-toggle-sec]');
+        if (secHdr) {
+            var body = document.getElementById('sec-body-' + secHdr.dataset.toggleSec);
+            if (body) body.classList.toggle('open');
+            return;
+        }
+
+        // ── Module header toggle — only if NOT clicking a button ──────────
+        var modHdr = e.target.closest('[data-toggle-module]');
+        if (modHdr && !e.target.closest('button')) {
+            var mbody = document.getElementById('mod-body-' + modHdr.dataset.toggleModule);
+            if (mbody) mbody.classList.toggle('open');
+            return;
+        }
+
+        // ══════════════════════════════════════════════════════════════════
+        // ADD ACTIONS
+        // ══════════════════════════════════════════════════════════════════
+
+        // ── ADD BATCH ─────────────────────────────────────────────────────
         if (e.target.closest('[data-action="add-batch"]')) {
             var container = document.getElementById('batches-container');
             var idx = container.querySelectorAll('.batch-block').length;
@@ -590,55 +727,31 @@ try {
             block.className = 'batch-block';
             block.dataset.batchId    = '0';
             block.dataset.batchIndex = idx;
-            block.innerHTML = `
-                <div class="batch-header">
-                  <div style="display:flex;align-items:center;gap:10px;">
-                    <label style="margin:0;font-size:13px;">Type:</label>
-                    <select class="batch-label-select" style="width:130px;">
-                      <option value="Offline">Offline</option>
-                      <option value="Online">Online</option>
-                    </select>
-                  </div>
-                  <button class="btn btn-danger btn-sm" data-action="delete-batch">🗑 Remove Batch</button>
-                </div>
-                <div class="slots-list" id="slots-${idx}">
-                  <div class="slot-row" data-slot-id="0" data-sort="1">
-                    <input type="text" class="slot-input" placeholder="e.g. 9:00AM to 11:00AM">
-                    <button class="btn btn-danger btn-sm" data-action="delete-slot">✕</button>
-                  </div>
-                </div>
-                <button class="btn btn-plus btn-sm" data-action="add-slot" data-batch-index="${idx}">＋ Add Slot</button>
-                &nbsp;
-                <button class="btn btn-success btn-sm" data-action="save-batch" data-batch-index="${idx}">💾 Save Batch</button>
-            `;
+            block.innerHTML =
+                '<div class="batch-header">' +
+                  '<div style="display:flex;align-items:center;gap:10px;">' +
+                    '<label style="margin:0;font-size:13px;">Type:</label>' +
+                    '<select class="batch-label-select" style="width:130px;">' +
+                      '<option value="Offline">Offline</option>' +
+                      '<option value="Online">Online</option>' +
+                    '</select>' +
+                  '</div>' +
+                  '<button class="btn btn-danger btn-sm" data-action="delete-batch">🗑 Remove Batch</button>' +
+                '</div>' +
+                '<div class="slots-list" id="slots-' + idx + '">' +
+                  '<div class="slot-row" data-slot-id="0" data-sort="1">' +
+                    '<input type="text" class="slot-input" placeholder="e.g. 9:00AM to 11:00AM">' +
+                    '<button class="btn btn-danger btn-sm" data-action="delete-slot">✕</button>' +
+                  '</div>' +
+                '</div>' +
+                '<button class="btn btn-plus btn-sm" data-action="add-slot" data-batch-index="' + idx + '">＋ Add Slot</button>' +
+                '&nbsp;' +
+                '<button class="btn btn-success btn-sm" data-action="save-batch" data-batch-index="' + idx + '">💾 Save Batch</button>';
             container.appendChild(block);
             return;
         }
 
-        // ── DELETE BATCH ───────────────────────────────────────────────────
-        var delBatch = e.target.closest('[data-action="delete-batch"]');
-        if (delBatch) {
-            var block = delBatch.closest('.batch-block');
-            var bid   = block.dataset.batchId;
-            if (bid && bid !== '0') {
-                if (!confirm('Delete this batch and all its slots?')) return;
-                var fd = new FormData();
-                fd.append('batch_id',    bid);
-                fd.append('course_id',   courseId);
-                fd.append('location_id', locId);
-                fetch('/da360-admin/curriculum_api.php?action=delete_batch', { method:'POST', body:fd })
-                    .then(function(r){ return r.json(); })
-                    .then(function(d){
-                        if (d.success) { block.remove(); showToast('🗑️ Batch removed.'); }
-                        else showToast('❌ ' + (d.message || 'Error'));
-                    });
-            } else {
-                block.remove();
-            }
-            return;
-        }
-
-        // ── ADD SLOT ───────────────────────────────────────────────────────
+        // ── ADD SLOT ──────────────────────────────────────────────────────
         var addSlot = e.target.closest('[data-action="add-slot"]');
         if (addSlot) {
             var bi   = addSlot.dataset.batchIndex;
@@ -648,52 +761,13 @@ try {
             row.className = 'slot-row';
             row.dataset.slotId = '0';
             row.dataset.sort   = sort;
-            row.innerHTML = `<input type="text" class="slot-input" placeholder="e.g. 11:30AM to 1:00PM">
-                             <button class="btn btn-danger btn-sm" data-action="delete-slot">✕</button>`;
+            row.innerHTML = '<input type="text" class="slot-input" placeholder="e.g. 11:30AM to 1:00PM">' +
+                            '<button class="btn btn-danger btn-sm" data-action="delete-slot">✕</button>';
             list.appendChild(row);
             return;
         }
 
-        // ── DELETE SLOT ────────────────────────────────────────────────────
-        var delSlot = e.target.closest('[data-action="delete-slot"]');
-        if (delSlot) {
-            delSlot.closest('.slot-row').remove();
-            return;
-        }
-
-        // ── SAVE BATCH (location-specific) ────────────────────────────────
-        var saveBatch = e.target.closest('[data-action="save-batch"]');
-        if (saveBatch) {
-            var bi    = saveBatch.dataset.batchIndex;
-            var block = saveBatch.closest('.batch-block');
-            var bid   = block.dataset.batchId;
-            var label = block.querySelector('.batch-label-select').value;
-            var slotEls = block.querySelectorAll('.slot-input');
-            var slots = [];
-            slotEls.forEach(function(inp) { var v=inp.value.trim(); if(v) slots.push(v); });
-
-            var fd = new FormData();
-            fd.append('batch_id',    bid);
-            fd.append('course_id',   courseId);
-            fd.append('location_id', locId);
-            fd.append('label',       label);
-            fd.append('slots',       JSON.stringify(slots));
-
-            fetch('/da360-admin/curriculum_api.php?action=save_batch', { method:'POST', body:fd })
-                .then(function(r){ return r.json(); })
-                .then(function(d){
-                    if (d.success) {
-                        block.dataset.batchId = d.batch_id;
-                        showToast('✅ Batch saved!');
-                    } else {
-                        showToast('❌ ' + (d.message || 'Error'));
-                    }
-                })
-                .catch(function(){ showToast('❌ Network error.'); });
-            return;
-        }
-
-        // ── ADD MODULE ─────────────────────────────────────────────────────
+        // ── ADD MODULE ────────────────────────────────────────────────────
         if (e.target.closest('[data-action="add-module"]')) {
             var container = document.getElementById('modules-container');
             var mi  = container.querySelectorAll('.module-block').length;
@@ -703,69 +777,45 @@ try {
             block.dataset.moduleId    = '0';
             block.dataset.moduleIndex = mi;
             block.dataset.number      = num;
-            block.innerHTML = `
-              <div class="module-header" data-toggle-module="${mi}">
-                <div style="display:flex;align-items:center;flex:1;">
-                  <div class="module-num">${num}</div>
-                  <span class="module-title-text">Module ${num}</span>
-                </div>
-                <div style="display:flex;gap:8px;" onclick="event.stopPropagation()">
-                  <button class="btn btn-success btn-sm" data-action="save-module" data-module-index="${mi}">💾 Save</button>
-                  <button class="btn btn-danger btn-sm" data-action="delete-module">🗑</button>
-                </div>
-              </div>
-              <div class="module-body open" id="mod-body-${mi}">
-                <div class="field-row">
-                  <label>Module Title</label>
-                  <input type="text" class="mod-title" placeholder="e.g. Digital Marketing Foundation">
-                </div>
-                <label>Badges (enter count, 0 = hidden)</label>
-                <div class="badges-grid" style="margin-top:6px;">
-                  <div class="badge-field"><label>🎥 Live</label><input type="number" class="badge-input" data-type="live" min="0" value="0"></div>
-                  <div class="badge-field"><label>📝 Assignments</label><input type="number" class="badge-input" data-type="assignment" min="0" value="0"></div>
-                  <div class="badge-field"><label>💼 Case Study</label><input type="number" class="badge-input" data-type="casestudy" min="0" value="0"></div>
-                  <div class="badge-field"><label>✅ Assessment</label><input type="number" class="badge-input" data-type="assesment" min="0" value="0"></div>
-                </div>
-                <div class="field-row" style="margin-top:12px;">
-                  <label>Topics</label>
-                  <div class="topics-list" id="topics-${mi}">
-                    <div class="topic-row" data-topic-id="0" data-sort="1">
-                      <input type="text" class="topic-input" placeholder="Topic 1">
-                      <button class="btn btn-danger btn-sm" data-action="delete-topic">✕</button>
-                    </div>
-                  </div>
-                  <button class="btn btn-plus btn-sm" data-action="add-topic" data-module-index="${mi}">＋ Add Topic</button>
-                </div>
-              </div>
-            `;
+            block.innerHTML =
+                '<div class="module-header" data-toggle-module="' + mi + '">' +
+                  '<div style="display:flex;align-items:center;flex:1;">' +
+                    '<div class="module-num">' + num + '</div>' +
+                    '<span class="module-title-text">Module ' + num + '</span>' +
+                  '</div>' +
+                  '<div style="display:flex;gap:8px;" >' +
+                    '<button class="btn btn-success btn-sm" data-action="save-module" data-module-index="' + mi + '">💾 Save</button>' +
+                    '<button class="btn btn-danger btn-sm" data-action="delete-module">🗑</button>' +
+                  '</div>' +
+                '</div>' +
+                '<div class="module-body open" id="mod-body-' + mi + '">' +
+                  '<div class="field-row">' +
+                    '<label>Module Title</label>' +
+                    '<input type="text" class="mod-title" placeholder="e.g. Digital Marketing Foundation">' +
+                  '</div>' +
+                  '<label>Badges (enter count, 0 = hidden)</label>' +
+                  '<div class="badges-grid" style="margin-top:6px;">' +
+                    '<div class="badge-field"><label>🎥 Live</label><input type="number" class="badge-input" data-type="live" min="0" value="0"></div>' +
+                    '<div class="badge-field"><label>📝 Assignments</label><input type="number" class="badge-input" data-type="assignment" min="0" value="0"></div>' +
+                    '<div class="badge-field"><label>💼 Case Study</label><input type="number" class="badge-input" data-type="casestudy" min="0" value="0"></div>' +
+                    '<div class="badge-field"><label>✅ Assessment</label><input type="number" class="badge-input" data-type="assesment" min="0" value="0"></div>' +
+                  '</div>' +
+                  '<div class="field-row" style="margin-top:12px;">' +
+                    '<label>Topics</label>' +
+                    '<div class="topics-list" id="topics-' + mi + '">' +
+                      '<div class="topic-row" data-topic-id="0" data-sort="1">' +
+                        '<input type="text" class="topic-input" placeholder="Topic 1">' +
+                        '<button class="btn btn-danger btn-sm" data-action="delete-topic">✕</button>' +
+                      '</div>' +
+                    '</div>' +
+                    '<button class="btn btn-plus btn-sm" data-action="add-topic" data-module-index="' + mi + '">＋ Add Topic</button>' +
+                  '</div>' +
+                '</div>';
             container.appendChild(block);
             return;
         }
 
-        // ── DELETE MODULE (course-wide) ────────────────────────────────────
-        var delMod = e.target.closest('[data-action="delete-module"]');
-        if (delMod) {
-            var block = delMod.closest('.module-block');
-            var mid   = block.dataset.moduleId;
-            if (mid && mid !== '0') {
-                if (!confirm('Delete this module for ALL locations?')) return;
-                var fd = new FormData();
-                fd.append('module_id', mid);
-                fd.append('course_id', courseId);
-                // Note: no location_id — module is course-wide
-                fetch('/da360-admin/curriculum_api.php?action=delete_module', { method:'POST', body:fd })
-                    .then(function(r){ return r.json(); })
-                    .then(function(d){
-                        if (d.success) { block.remove(); showToast('🗑️ Module removed.'); }
-                        else showToast('❌ ' + (d.message || 'Error'));
-                    });
-            } else {
-                block.remove();
-            }
-            return;
-        }
-
-        // ── ADD TOPIC ──────────────────────────────────────────────────────
+        // ── ADD TOPIC ─────────────────────────────────────────────────────
         var addTopic = e.target.closest('[data-action="add-topic"]');
         if (addTopic) {
             var mi   = addTopic.dataset.moduleIndex;
@@ -775,74 +825,17 @@ try {
             row.className = 'topic-row';
             row.dataset.topicId = '0';
             row.dataset.sort    = sort;
-            row.innerHTML = `<input type="text" class="topic-input" placeholder="Topic ${sort}">
-                             <button class="btn btn-danger btn-sm" data-action="delete-topic">✕</button>`;
+            row.innerHTML = '<input type="text" class="topic-input" placeholder="Topic ' + sort + '">' +
+                            '<button class="btn btn-danger btn-sm" data-action="delete-topic">✕</button>';
             list.appendChild(row);
             return;
         }
 
-        // ── DELETE TOPIC ───────────────────────────────────────────────────
-        var delTopic = e.target.closest('[data-action="delete-topic"]');
-        if (delTopic) {
-            delTopic.closest('.topic-row').remove();
-            return;
-        }
+    };
 
-        // ── SAVE MODULE (course-wide — no location_id sent) ───────────────
-        var saveMod = e.target.closest('[data-action="save-module"]');
-        if (saveMod) {
-            var mi    = saveMod.dataset.moduleIndex;
-            var block = saveMod.closest('.module-block');
-            var mid   = block.dataset.moduleId;
-            var num   = block.dataset.number;
-            var title = block.querySelector('.mod-title').value.trim();
+    // ✅ Register the named handler
+    document.addEventListener('click', window._cmrClickHandler, false);
 
-            var badges = {};
-            block.querySelectorAll('.badge-input').forEach(function(inp) {
-                badges[inp.dataset.type] = parseInt(inp.value) || 0;
-            });
-
-            var topics = [];
-            block.querySelectorAll('.topic-input').forEach(function(inp, idx) {
-                var v = inp.value.trim();
-                if (v) topics.push({ sort_order: idx + 1, topic: v });
-            });
-
-            if (!title) { showToast('⚠️ Module title is required.'); return; }
-
-            var fd = new FormData();
-            fd.append('module_id',  mid);
-            fd.append('course_id',  courseId);
-            // Note: no location_id — module is course-wide
-            fd.append('number',     num);
-            fd.append('sort_order', parseInt(mi) + 1);
-            fd.append('title',      title);
-            fd.append('badges',     JSON.stringify(badges));
-            fd.append('topics',     JSON.stringify(topics));
-
-            block.classList.add('saving');
-            fetch('/da360-admin/curriculum_api.php?action=save_module', { method:'POST', body:fd })
-                .then(function(r){ return r.json(); })
-                .then(function(d){
-                    block.classList.remove('saving');
-                    if (d.success) {
-                        block.dataset.moduleId = d.module_id;
-                        block.querySelector('.module-title-text').textContent = title;
-                        block.classList.add('saved');
-                        showToast('✅ Module ' + num + ' saved!');
-                        setTimeout(function(){ block.classList.remove('saved'); }, 2200);
-                    } else {
-                        showToast('❌ ' + (d.message || 'Error'));
-                    }
-                })
-                .catch(function(){
-                    block.classList.remove('saving');
-                    showToast('❌ Network error.');
-                });
-            return;
-        }
-
-    }, false);
 })();
 JSCODE;
 
