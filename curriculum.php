@@ -1,16 +1,9 @@
 <?php
-/**
- * curriculum.php
- * Responsibilities: Auth check, render page shell + course/location dropdowns.
- * Everything else (heading, batches, modules) is handled by curriculum_api.php via AJAX.
- */
-
 require_once __DIR__ . '/config/auth.php';
 require_once __DIR__ . '/config/db.php';
 requireLogin();
 
 $db = getDB();
-
 $courses = $db->query(
     "SELECT id, label FROM courses WHERE is_active = 1 ORDER BY id, label"
 )->fetchAll(PDO::FETCH_ASSOC);
@@ -70,85 +63,3 @@ include __DIR__ . '/partials/sidebar.php';
 </main>
 
 <?php include __DIR__ . '/partials/footer.php'; ?>
-<div id="toast"></div>
-
-<script>
-// ── Course → Locations ────────────────────────────────────────────────────────
-var courseSelect   = document.getElementById('course-select');
-var locationSelect = document.getElementById('location-select');
-var viewBtn        = document.getElementById('view-btn');
-var resultArea     = document.getElementById('result-area');
-
-courseSelect.addEventListener('change', function () {
-    var courseId = this.value;
-    locationSelect.innerHTML = '<option value="">— Loading… —</option>';
-    locationSelect.disabled  = true;
-    viewBtn.disabled         = true;
-
-    if (!courseId) {
-        locationSelect.innerHTML = '<option value="">— Select Location —</option>';
-        return;
-    }
-
-    fetch('/da360-admin/api.php?action=get_locations&course_id=' + courseId)
-        .then(function (r) { return r.json(); })
-        .then(function (data) {
-            locationSelect.innerHTML = '<option value="">— Select Location —</option>';
-            if (data.success && data.locations.length) {
-                data.locations.forEach(function (loc) {
-                    var opt = document.createElement('option');
-                    opt.value       = loc.id;
-                    opt.textContent = loc.label;
-                    locationSelect.appendChild(opt);
-                });
-                locationSelect.disabled = false;
-            } else {
-                locationSelect.innerHTML = '<option value="">No locations found</option>';
-            }
-        })
-        .catch(function () {
-            locationSelect.innerHTML = '<option value="">Error loading</option>';
-        });
-});
-
-locationSelect.addEventListener('change', function () {
-    viewBtn.disabled = !this.value;
-});
-
-// ── Load curriculum HTML from API ─────────────────────────────────────────────
-viewBtn.addEventListener('click', function () {
-    var courseId   = courseSelect.value;
-    var locationId = locationSelect.value;
-    if (!courseId || !locationId) return;
-
-    resultArea.innerHTML = '<div class="state-placeholder"><span class="big-icon">⏳</span><h3>Loading…</h3></div>';
-
-    fetch('/da360-admin/curriculum_api.php?action=get_curriculum_html&course_id=' + courseId + '&location_id=' + locationId)
-        .then(function (r) { return r.json(); })
-        .then(function (data) {
-            if (data.success) {
-                resultArea.innerHTML = data.html;
-                if (data.js) {
-                    var s = document.createElement('script');
-                    s.textContent = data.js;
-                    document.body.appendChild(s);
-                }
-            } else {
-                resultArea.innerHTML = '<div class="state-placeholder"><span class="big-icon">❌</span><h3>' + (data.message || 'Error') + '</h3></div>';
-            }
-        })
-        .catch(function () {
-            resultArea.innerHTML = '<div class="state-placeholder"><span class="big-icon">❌</span><h3>Network error</h3></div>';
-        });
-});
-
-// ── Toast helper (used by injected JS) ───────────────────────────────────────
-function showToast(msg) {
-    var t = document.getElementById('toast');
-    if (!t) return;
-    t.textContent = msg;
-    t.className   = 'toast show';
-    clearTimeout(t._tid);
-    t._tid = setTimeout(function () { t.className = 'toast'; }, 3000);
-}
-</script>

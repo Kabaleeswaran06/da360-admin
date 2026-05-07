@@ -68,6 +68,15 @@ const PAGE_CONFIG = {
     emptyTitle:  'No FAQs loaded yet',
     emptyDesc:   'Choose a course and location above to load FAQ categories.',
   },
+  'curriculum': {
+    api:         '/da360-admin/curriculum_api.php',
+    action:      'get_curriculum_html',
+    loadingText: 'Loading curriculum…',
+    loadingDesc: 'Fetching modules and batch timings from the database.',
+    emptyIcon:   '📦',
+    emptyTitle:  'No curriculum loaded yet',
+    emptyDesc:   'Choose a course and location above to load the curriculum editor.',
+  },
   'schemas': {
     api:         '/da360-admin/schemas_api.php',
     action:      'get_schemas_html',
@@ -190,7 +199,12 @@ const PAGE_CONFIG = {
           // Execute any JS returned by the API (e.g. FAQ panel listeners)
           // Scripts inside innerHTML are silently ignored by browsers, so APIs
           // return JS separately as data.js and we execute it here.
-          if (data.js) new Function(data.js)();
+          // if (data.js) new Function(data.js)();
+          if (data.js) {
+              var s = document.createElement('script');
+              s.textContent = data.js;
+              document.body.appendChild(s);
+          }
           // Content Manager needs a save handler wired up after render
           if (page === 'content-manager') {
             attachSaveHandler(loadPage);
