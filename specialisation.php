@@ -64,47 +64,13 @@ include __DIR__ . '/partials/sidebar.php';
 
 <script>
 (function () {
-  var courseSelect   = document.getElementById('course-select');
-  var locationSelect = document.getElementById('location-select');
-  var viewBtn        = document.getElementById('view-btn');
-  var resultArea     = document.getElementById('result-area');
-
-  // ── Load locations when course changes ─────────────────────────────────────
-  courseSelect.addEventListener('change', function () {
-    var courseId = this.value;
-    locationSelect.innerHTML = '<option value="">— Select Location —</option>';
-    locationSelect.disabled = true;
-    viewBtn.disabled = true;
-
-    if (!courseId) return;
-
-    fetch('/da360-admin/specialisation_api.php?action=get_locations&course_id=' + courseId)
-      .then(function (r) { return r.json(); })
-      .then(function (d) {
-        if (d.success && d.locations.length) {
-          d.locations.forEach(function (loc) {
-            var opt = document.createElement('option');
-            opt.value       = loc.id;
-            opt.textContent = loc.label;
-            locationSelect.appendChild(opt);
-          });
-          locationSelect.disabled = false;
-        } else {
-          showToast('⚠️ No locations found for this course.');
-        }
-      })
-      .catch(function () { showToast('❌ Failed to load locations.'); });
-  });
-
-  // ── Enable Load button when location selected ───────────────────────────────
-  locationSelect.addEventListener('change', function () {
-    viewBtn.disabled = !this.value;
-  });
+  var viewBtn    = document.getElementById('view-btn');
+  var resultArea = document.getElementById('result-area');
 
   // ── Load specialisation editor ──────────────────────────────────────────────
   viewBtn.addEventListener('click', function () {
-    var courseId   = courseSelect.value;
-    var locationId = locationSelect.value;
+    var courseId   = document.getElementById('course-select').value;
+    var locationId = document.getElementById('location-select').value;
     if (!courseId || !locationId) return;
 
     resultArea.innerHTML = '<div class="state-placeholder"><span class="big-icon spin">⏳</span><h3>Loading…</h3></div>';
@@ -130,22 +96,6 @@ include __DIR__ . '/partials/sidebar.php';
         resultArea.innerHTML = '<div class="state-placeholder"><span class="big-icon">❌</span><h3>Network error</h3></div>';
       });
   });
-
-  // ── Global toast helper ─────────────────────────────────────────────────────
-  window.showToast = window.showToast || function (msg) {
-    var t = document.createElement('div');
-    t.className   = 'toast-msg';
-    t.textContent = msg;
-    Object.assign(t.style, {
-      position:'fixed', bottom:'24px', right:'24px', background:'#1e293b',
-      color:'#fff', padding:'10px 18px', borderRadius:'8px', fontSize:'14px',
-      zIndex:9999, boxShadow:'0 4px 12px rgba(0,0,0,.25)', opacity:'0',
-      transition:'opacity .25s'
-    });
-    document.body.appendChild(t);
-    setTimeout(function () { t.style.opacity = '1'; }, 10);
-    setTimeout(function () { t.style.opacity = '0'; setTimeout(function () { t.remove(); }, 300); }, 3000);
-  };
 })();
 </script>
 
