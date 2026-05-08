@@ -7,6 +7,7 @@ $navItems = [
   ['slug' => 'content-manager', 'label' => 'Content Manager',  'icon' => 'layers',     'href' => 'content-manager.php'],
   ['slug' => 'faqs', 'label' => 'FAQs',  'icon' => 'faqs',     'href' => 'faqs.php'],
   ['slug' => 'curriculum', 'label' => 'Curriculum',  'icon' => 'curriculum',     'href' => 'curriculum.php'],
+  ['slug' => 'specialisation', 'label' => 'specialisation',  'icon' => 'specialisation',     'href' => 'specialisation.php'],
   ['slug' => 'courses',         'label' => 'Courses',          'icon' => 'book-open',  'href' => 'courses.php'],
   ['slug' => 'locations',       'label' => 'Locations',        'icon' => 'map-pin',    'href' => 'locations.php'],
 ];
@@ -17,10 +18,8 @@ $icons = [
   'book-open' => '<svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>',
   'map-pin'   => '<svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>',
   'faqs' => '<svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>  <polyline points="14 2 14 8 20 8"/>  <path d="M10 12a2 2 0 0 1 3.83-1c0 1.5-2 2.5-2 3.5"/>  <path d="M12 18h.01"/></svg>',
-  'curriculum'=>'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-  <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
-  <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
-</svg>',
+  'curriculum'=>'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">  <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />  <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" /></svg>',
+  'specialisation' => '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">  <path d="M4 19.5V4a2 2 0 0 1 2-2h14v18H6.5a2.5 2.5 0 0 1-2.5-2Z" />  <path d="M12 2v20" />  <path d="M16 6h4v8h-4z"/></svg>',
   'register' => '<svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">  <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>  <circle cx="9" cy="7" r="4"/>  <line x1="19" y1="8" x2="19" y2="14"/>  <line x1="22" y1="11" x2="16" y2="11"/></svg>',
 ];
 $register="/da360-admin/register.php";
