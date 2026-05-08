@@ -415,7 +415,7 @@ try {
 <div class="fmr">
 
   <div class="result-header animate-fadeup">
-    <div class="result-title">FAQ Manager</div>
+    <div class="result-title"></div>
     <div class="result-meta">
       <span class="meta-pill accent"><?= htmlspecialchars($courseLabel) ?></span>
       <span class="meta-pill"><?= htmlspecialchars($locationLabel) ?></span>
