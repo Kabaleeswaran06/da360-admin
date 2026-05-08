@@ -182,15 +182,6 @@ try {
         echo json_encode(['success' => true, 'locations' => $locations]);
         exit;
     }
-
-    // ══════════════════════════════════════════════════════════════════════════
-    // GET CURRICULUM HTML  — admin panel rendered HTML + JS
-    // GET /curriculum_api.php?action=get_curriculum_html&course_id=1&location_id=2
-    //
-    // Section 1 (Heading & Description) → course + location specific
-    // Section 2 (Batch Timings)         → course + location specific
-    // Section 3 (Modules)               → course-wide (no location_id)
-    // ══════════════════════════════════════════════════════════════════════════
     if ($action === 'get_curriculum_html') {
         $courseId   = (int)($_GET['course_id']   ?? 0);
         $locationId = (int)($_GET['location_id'] ?? 0);
@@ -199,6 +190,13 @@ try {
             echo json_encode(['success' => false, 'message' => 'Missing course_id or location_id']);
             exit;
         }
+        $stmt = $db->prepare("SELECT label FROM courses WHERE id = ? LIMIT 1");
+        $stmt->execute([$courseId]);
+        $courseLabel = $stmt->fetchColumn() ?: '';
+
+        $stmt = $db->prepare("SELECT label FROM locations WHERE id = ? LIMIT 1");
+        $stmt->execute([$locationId]);
+        $locationLabel = $stmt->fetchColumn() ?: '';
 
         // ── Heading + description (location-specific) ─────────────────────
         $stmt = $db->prepare("
@@ -280,97 +278,107 @@ try {
                 'topics'     => $topics,
             ];
         }
-
-        // ── Render HTML ───────────────────────────────────────────────────
         ob_start(); ?>
-<style>
-.cmr *, .cmr *::before, .cmr *::after { box-sizing: border-box; }
-.cmr { font-family: system-ui, sans-serif; color: #1e293b; }
+    <style>
+        .cmr *, .cmr *::before, .cmr *::after { box-sizing: border-box; }
+        .cmr { font-family: system-ui, sans-serif; color: #1e293b; }
 
-/* ── Top meta bar ── */
-.cmr .meta-bar { display:flex; align-items:center; justify-content:space-between; padding:10px 16px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; margin-bottom:18px; font-size:13px; color:#64748b; }
-.cmr .meta-bar strong { color:#334155; }
+        /* ── Top meta bar ── */
+        .cmr .meta-bar { display:flex; align-items:center; justify-content:space-between; padding:10px 16px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; margin-bottom:18px; font-size:13px; color:#64748b; }
+        .cmr .meta-bar strong { color:#334155; }
 
-/* ── Section cards ── */
-.cmr .section-card { background:#fff; border:1px solid #e2e8f0; border-radius:10px; margin-bottom:18px; overflow:hidden; }
-.cmr .section-header { display:flex; align-items:center; justify-content:space-between; padding:14px 18px; background:#f1f5f9; border-bottom:1px solid #e2e8f0; cursor:pointer; user-select:none; }
-.cmr .section-header h3 { margin:0; font-size:15px; font-weight:600; color:#1e293b; }
-.cmr .section-body { padding:18px; display:none; }
-.cmr .section-body.open { display:block; }
+        /* ── Section cards ── */
+        .cmr .section-card { background:#fff; border:1px solid #e2e8f0; border-radius:10px; margin-bottom:18px; overflow:hidden; }
+        .cmr .section-header { display:flex; align-items:center; justify-content:space-between; padding:14px 18px; background:#f1f5f9; border-bottom:1px solid #e2e8f0; cursor:pointer; user-select:none; }
+        .cmr .section-header h3 { margin:0; font-size:15px; font-weight:600; color:#1e293b; }
+        .cmr .section-body { padding:18px; display:none; }
+        .cmr .section-body.open { display:block; }
 
-/* ── Section scope badge ── */
-.cmr .scope-badge { font-size:11px; font-weight:600; padding:3px 8px; border-radius:20px; margin-left:10px; vertical-align:middle; }
-.cmr .scope-location { background:#dbeafe; color:#1d4ed8; }
-.cmr .scope-course   { background:#dcfce7; color:#15803d; }
+        /* ── Section scope badge ── */
+        .cmr .scope-badge { font-size:11px; font-weight:600; padding:3px 8px; border-radius:20px; margin-left:10px; vertical-align:middle; }
+        .cmr .scope-location { background:#dbeafe; color:#1d4ed8; }
+        .cmr .scope-course   { background:#dcfce7; color:#15803d; }
 
-/* ── Fields ── */
-.cmr label { display:block; font-size:12px; font-weight:600; color:#64748b; margin-bottom:4px; text-transform:uppercase; letter-spacing:.4px; }
-.cmr input[type=text], .cmr textarea, .cmr select {
-    width:100%; padding:9px 12px; border:1.5px solid #cbd5e1; border-radius:6px;
-    font-size:14px; color:#1e293b; background:#fff; transition:border-color .15s;
-}
-.cmr input[type=text]:focus, .cmr textarea:focus { border-color:#6366f1; outline:none; }
-.cmr textarea { resize:vertical; min-height:80px; }
-.cmr .field-row { margin-bottom:14px; }
-.cmr .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+        /* ── Fields ── */
+        .cmr label { display:block; font-size:12px; font-weight:600; color:#64748b; margin-bottom:4px; text-transform:uppercase; letter-spacing:.4px; }
+        .cmr input[type=text], .cmr textarea, .cmr select {
+            width:100%; padding:9px 12px; border:1.5px solid #cbd5e1; border-radius:6px;
+            font-size:14px; color:#1e293b; background:#fff; transition:border-color .15s;
+        }
+        .cmr input[type=text]:focus, .cmr textarea:focus { border-color:#6366f1; outline:none; }
+        .cmr textarea { resize:vertical; min-height:80px; }
+        .cmr .field-row { margin-bottom:14px; }
+        .cmr .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
 
-/* ── Buttons ── */
-.cmr .btn { display:inline-flex; align-items:center; gap:6px; padding:8px 14px; border:none; border-radius:6px; font-size:13px; font-weight:600; cursor:pointer; transition:opacity .15s; }
-.cmr .btn:hover { opacity:.85; }
-.cmr .btn-primary   { background:#6366f1; color:#fff; }
-.cmr .btn-success   { background:#22c55e; color:#fff; }
-.cmr .btn-danger    { background:#ef4444; color:#fff; }
-.cmr .btn-outline   { background:#fff; color:#475569; border:1.5px solid #cbd5e1; }
-.cmr .btn-sm        { padding:5px 10px; font-size:12px; }
-.cmr .btn-plus      { background:#e0f2fe; color:#0284c7; border:1.5px dashed #7dd3fc; }
+        /* ── Buttons ── */
+        .cmr .btn { display:inline-flex; align-items:center; gap:6px; padding:8px 14px; border:none; border-radius:6px; font-size:13px; font-weight:600; cursor:pointer; transition:opacity .15s; }
+        .cmr .btn:hover { opacity:.85; }
+        .cmr .btn-primary   { background:#6366f1; color:#fff; }
+        .cmr .btn-success   { background:#22c55e; color:#fff; }
+        .cmr .btn-danger    { background:#ef4444; color:#fff; }
+        .cmr .btn-outline   { background:#fff; color:#475569; border:1.5px solid #cbd5e1; }
+        .cmr .btn-sm        { padding:5px 10px; font-size:12px; }
+        .cmr .btn-plus      { background:#e0f2fe; color:#0284c7; border:1.5px dashed #7dd3fc; }
 
-/* ── Batch section ── */
-.cmr .batch-block { border:1px solid #e2e8f0; border-radius:8px; padding:14px; margin-bottom:12px; background:#fafafa; }
-.cmr .batch-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
-.cmr .batch-header strong { font-size:14px; color:#334155; }
-.cmr .slot-row { display:flex; align-items:center; gap:8px; margin-bottom:7px; }
-.cmr .slot-row input { flex:1; }
-.cmr .slots-list { margin-bottom:8px; }
+        /* ── Batch section ── */
+        .cmr .batch-block { border:1px solid #e2e8f0; border-radius:8px; padding:14px; margin-bottom:12px; background:#fafafa; }
+        .cmr .batch-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+        .cmr .batch-header strong { font-size:14px; color:#334155; }
+        .cmr .slot-row { display:flex; align-items:center; gap:8px; margin-bottom:7px; }
+        .cmr .slot-row input { flex:1; }
+        .cmr .slots-list { margin-bottom:8px; }
 
-/* ── Module block ── */
-.cmr .module-block { border:1.5px solid #e2e8f0; border-radius:10px; margin-bottom:14px; background:#fff; }
-.cmr .module-header { display:flex; align-items:center; justify-content:space-between; padding:12px 16px; background:#f8fafc; border-bottom:1px solid #e2e8f0; border-radius:10px 10px 0 0; cursor:pointer; }
-.cmr .module-num { width:32px; height:32px; border-radius:50%; background:#6366f1; color:#fff; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:700; flex-shrink:0; }
-.cmr .module-title-text { font-size:14px; font-weight:600; color:#1e293b; margin-left:10px; flex:1; }
-.cmr .module-body { padding:16px; display:none; }
-.cmr .module-body.open { display:block; }
+        /* ── Module block ── */
+        .cmr .module-block { border:1.5px solid #e2e8f0; border-radius:10px; margin-bottom:14px; background:#fff; }
+        .cmr .module-header { display:flex; align-items:center; justify-content:space-between; padding:12px 16px; background:#f8fafc; border-bottom:1px solid #e2e8f0; border-radius:10px 10px 0 0; cursor:pointer; }
+        .cmr .module-num { width:32px; height:32px; border-radius:50%; background:#6366f1; color:#fff; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:700; flex-shrink:0; }
+        .cmr .module-title-text { font-size:14px; font-weight:600; color:#1e293b; margin-left:10px; flex:1; }
+        .cmr .module-body { padding:16px; display:none; }
+        .cmr .module-body.open { display:block; }
 
-/* ── Badges grid ── */
-.cmr .badges-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:14px; }
-.cmr .badge-field { text-align:center; }
-.cmr .badge-field label { font-size:11px; }
-.cmr .badge-field input { text-align:center; }
+        /* ── Badges grid ── */
+        .cmr .badges-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:14px; }
+        .cmr .badge-field { text-align:center; }
+        .cmr .badge-field label { font-size:11px; }
+        .cmr .badge-field input { text-align:center; }
 
-/* ── Topics ── */
-.cmr .topic-row { display:flex; align-items:center; gap:8px; margin-bottom:6px; }
-.cmr .topic-row input { flex:1; }
-.cmr .topics-list { margin-bottom:8px; }
+        /* ── Topics ── */
+        .cmr .topic-row { display:flex; align-items:center; gap:8px; margin-bottom:6px; }
+        .cmr .topic-row input { flex:1; }
+        .cmr .topics-list { margin-bottom:8px; }
 
-/* ── Save flash ── */
-.cmr .saving { opacity:.5; pointer-events:none; }
-.cmr .saved   { background:#dcfce7 !important; transition:background .4s; }
-.cmr .errored { background:#fee2e2 !important; }
-</style>
+        /* ── Save flash ── */
+        .cmr .saving { opacity:.5; pointer-events:none; }
+        .cmr .saved   { background:#dcfce7 !important; transition:background .4s; }
+        .cmr .errored { background:#fee2e2 !important; }
+    </style>
 
-<?php
+    <?php
         $updatedBy = $currRow['updated_by'] ?? null;
         $updatedAt = $currRow['updated_at'] ?? null;
-?>
+    ?>
 
 <div class="cmr" id="cmr-root" data-course="<?= $courseId ?>" data-location="<?= $locationId ?>">
-
+    <div class="result-header animate-fadeup">
+        <div class="result-title"></div>
+        <div class="result-meta">
+        <span class="meta-pill accent"><?= htmlspecialchars($courseLabel) ?></span>
+        <span class="meta-pill"><?= htmlspecialchars($locationLabel) ?></span>
+        </div>
+    </div>
   <!-- Meta bar -->
-  <div class="meta-bar">
-    <span>Course ID: <strong><?= $courseId ?></strong> &nbsp;|&nbsp; Location ID: <strong><?= $locationId ?></strong></span>
+  <div class="stats-bar">
+    <div class="stat-chip"><b><?= count($batchData) ?></b>&nbsp;Total Batch</div>
+    <div class="stat-chip"><b><?= count($moduleRows) ?></b>&nbsp;Module</div>
+
     <?php if ($updatedBy): ?>
-      <span>Last saved by <strong><?= htmlspecialchars($updatedBy) ?></strong>
-        <?= $updatedAt ? ' on ' . htmlspecialchars($updatedAt) : '' ?></span>
-    <?php endif; ?>
+            <div class="stat-chip">
+                ✏️ Last updated by &nbsp;<b><?= htmlspecialchars($updatedBy) ?></b>
+                <?php if ($updatedAt): ?>
+                &nbsp;on&nbsp;<b><?= htmlspecialchars($updatedAt) ?></b>
+                <?php endif; ?>
+            </div>
+            <?php endif; ?>
   </div>
 
   <!-- ① Heading + Description — course + location specific ─────────────── -->
