@@ -171,6 +171,15 @@ try {
         $stmt->execute([$courseId]);
         $cohorts = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+        // ── Banner ────────────────────────────────────────────────────────────
+        $stmt = $db->prepare("SELECT desktop_banner, mobile_banner FROM course_banners WHERE course_id = ? LIMIT 1");
+        $stmt->execute([$courseId]);
+        $bannerRow = $stmt->fetch(PDO::FETCH_ASSOC) ?: ['desktop_banner' => '', 'mobile_banner' => ''];
+        $banner = [
+            'desktop' => $bannerRow['desktop_banner'] ? $base_url . $bannerRow['desktop_banner'] : '',
+            'mobile'  => $bannerRow['mobile_banner']  ? $base_url . $bannerRow['mobile_banner']  : '',
+        ];
+
         // ── Locations ─────────────────────────────────────────────────────
         $stmt = $db->prepare("SELECT id, label, slug FROM locations WHERE is_active = 1 ORDER BY sort_order, label");
         $stmt->execute();
@@ -217,6 +226,7 @@ try {
             'liveProjectItems' => $liveProjectItems, // ← moved to top level
             'locations'        => $locations,        // ← now only headings
             'keyHighlights'    => $keyHighlights,
+            'banner' => $banner,
         ]);
         exit;
     }
@@ -421,6 +431,7 @@ try {
     <button class="tab-btn"        data-tab="tools">🛠️ Tools</button>
     <button class="tab-btn"        data-tab="casestudies">💼 Case Studies</button>
     <button class="tab-btn"        data-tab="liveprojects">🚀 Live Projects</button>
+    <button class="tab-btn"        data-tab="banner">🖼️ Banner</button>
   </div>
 
   <!-- ═══════════════════════════════════════════════════════════════════
@@ -709,6 +720,44 @@ try {
     </div>
   </div>
 
+  <!-- ═══════════════════════════════════════════════════════════════════
+     TAB — BANNER
+════════════════════════════════════════════════════════════════════ -->
+  <div class="tab-pane" id="tab-pane-banner">
+    <div class="info-card">
+      <div class="info-card-title">🖼️ Banner Images</div>
+
+      <div class="field-2col">
+        <div>
+          <label>Desktop Banner</label>
+          <?php
+            $stmt = $db->prepare("SELECT desktop_banner, mobile_banner FROM course_banners WHERE course_id = ? LIMIT 1");
+            $stmt->execute([$courseId]);
+            $bannerRow = $stmt->fetch(PDO::FETCH_ASSOC) ?: ['desktop_banner' => '', 'mobile_banner' => ''];
+          ?>
+          <?php if ($bannerRow['desktop_banner']): ?>
+            <img src="/da360-admin/<?= htmlspecialchars($bannerRow['desktop_banner']) ?>" class="img-preview-lg cw-desktop-banner-preview" style="width:100%;height:80px;" alt="desktop banner">
+          <?php else: ?>
+            <img src="" class="img-preview-lg cw-desktop-banner-preview" style="display:none;width:100%;height:80px;" alt="desktop banner">
+          <?php endif; ?>
+          <input type="file" class="banner-desktop-file" accept="image/*" style="margin-top:6px;">
+          <input type="hidden" class="banner-desktop-path" value="<?= htmlspecialchars($bannerRow['desktop_banner']) ?>">
+        </div>
+        <div>
+          <label>Mobile Banner</label>
+          <?php if ($bannerRow['mobile_banner']): ?>
+            <img src="/da360-admin/<?= htmlspecialchars($bannerRow['mobile_banner']) ?>" class="img-preview-lg cw-mobile-banner-preview" style="width:100%;height:80px;" alt="mobile banner">
+          <?php else: ?>
+            <img src="" class="img-preview-lg cw-mobile-banner-preview" style="display:none;width:100%;height:80px;" alt="mobile banner">
+          <?php endif; ?>
+          <input type="file" class="banner-mobile-file" accept="image/*" style="margin-top:6px;">
+          <input type="hidden" class="banner-mobile-path" value="<?= htmlspecialchars($bannerRow['mobile_banner']) ?>">
+        </div>
+      </div>
+
+      <button class="btn btn-primary btn-sm" data-action="save-banner" style="margin-top:8px;">💾 Save Banner</button>
+    </div>
+  </div>
   <!-- ═══════════════════════════════════════════════════════════════════
        TAB 4 — LIVE PROJECTS
        Heading: location-specific | Items: course-wide
@@ -1598,6 +1647,60 @@ try {
             return;
         }
 
+        // Desktop banner preview
+        if (e.target.classList.contains('banner-desktop-file')) {
+            var img = document.querySelector('.cw-desktop-banner-preview');
+            previewFile(e.target, img);
+        }
+        // Mobile banner preview
+        if (e.target.classList.contains('banner-mobile-file')) {
+            var img = document.querySelector('.cw-mobile-banner-preview');
+            previewFile(e.target, img);
+        }
+
+        // ── SAVE BANNER ───────────────────────────────────────────────────────
+      if (e.target.closest('[data-action="save-banner"]')) {
+          var desktopFile = document.querySelector('.banner-desktop-file');
+          var mobileFile  = document.querySelector('.banner-mobile-file');
+          var btn = e.target.closest('[data-action="save-banner"]');
+          btn.classList.add('saving');
+
+          Promise.all([
+              uploadImage(desktopFile, 'banners'),
+              uploadImage(mobileFile,  'banners')
+          ]).then(function(results) {
+              var desktopUrl = results[0] || document.querySelector('.banner-desktop-path').value;
+              var mobileUrl  = results[1] || document.querySelector('.banner-mobile-path').value;
+
+              var fd = new FormData();
+              fd.append('course_id',      courseId);
+              fd.append('desktop_banner', desktopUrl);
+              fd.append('mobile_banner',  mobileUrl);
+
+              return fetch('/da360-admin/coursewise_api.php?action=save_banner', { method:'POST', body:fd });
+          }).then(function(r){ return r.json(); })
+            .then(function(d){
+              btn.classList.remove('saving');
+              if (d.success) {
+                  // update hidden paths with saved URLs
+                  if (d.desktop_banner) {
+                      document.querySelector('.banner-desktop-path').value = d.desktop_banner;
+                      var img = document.querySelector('.cw-desktop-banner-preview');
+                      img.src = '/da360-admin' + d.desktop_banner;
+                      img.style.display = 'block';
+                  }
+                  if (d.mobile_banner) {
+                      document.querySelector('.banner-mobile-path').value = d.mobile_banner;
+                      var img = document.querySelector('.cw-mobile-banner-preview');
+                      img.src = '/da360-admin' + d.mobile_banner;
+                      img.style.display = 'block';
+                  }
+                  showToast('✅ Banner saved!');
+              } else { showToast('❌ ' + (d.message||'Error')); }
+            }).catch(function(){ btn.classList.remove('saving'); showToast('❌ Network error.'); });
+          return;
+      }
+
         // ── ADD COHORT ────────────────────────────────────────────────────────
         if (e.target.closest('[data-action="add-cohort"]')) {
             var container = document.getElementById('cohorts-container');
@@ -2019,6 +2122,37 @@ JSCODE;
         $stmt = $db->prepare("DELETE FROM course_cohorts WHERE id=? AND course_id=? LIMIT 1");
         $stmt->execute([$cohortId, $courseId]);
         echo json_encode(['success' => $stmt->rowCount() > 0, 'message' => 'Cohort deleted']);
+        exit;
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+
+    // SAVE BANNER
+    // ══════════════════════════════════════════════════════════════════════════
+    if ($action === 'save_banner' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+        $courseId      = (int)($_POST['course_id']      ?? 0);
+        $desktopBanner = trim($_POST['desktop_banner']  ?? '');
+        $mobileBanner  = trim($_POST['mobile_banner']   ?? '');
+        $updatedBy     = $_SESSION['da360_user']['name'] ?? $_SESSION['da360_user']['username'] ?? 'unknown';
+
+        if (!$courseId) { echo json_encode(['success' => false, 'message' => 'Missing course_id']); exit; }
+
+        $stmt = $db->prepare("
+            INSERT INTO course_banners (course_id, desktop_banner, mobile_banner, updated_at, updated_by)
+            VALUES (?, ?, ?, NOW(), ?)
+            ON DUPLICATE KEY UPDATE
+                desktop_banner = VALUES(desktop_banner),
+                mobile_banner  = VALUES(mobile_banner),
+                updated_at     = NOW(),
+                updated_by     = VALUES(updated_by)
+        ");
+        $stmt->execute([$courseId, $desktopBanner, $mobileBanner, $updatedBy]);
+        echo json_encode([
+            'success'        => true,
+            'desktop_banner' => $desktopBanner,
+            'mobile_banner'  => $mobileBanner,
+            'message'        => 'Banner saved'
+        ]);
         exit;
     }
 
