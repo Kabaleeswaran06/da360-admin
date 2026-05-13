@@ -6,9 +6,10 @@ $navItems = [
   ['slug' => 'dashboard',       'label' => 'Dashboard',        'icon' => 'grid',       'href' => 'dashboard.php'],
   ['slug' => 'content-manager', 'label' => 'Content Manager',  'icon' => 'layers',     'href' => 'content-manager.php'],
   ['slug' => 'faqs', 'label' => 'FAQs',  'icon' => 'faqs',     'href' => 'faqs.php'],
-  ['slug' => 'curriculum', 'label' => 'Curriculum',  'icon' => 'curriculum',     'href' => 'curriculum.php'],
-  ['slug' => 'specialisation', 'label' => 'specialisation',  'icon' => 'specialisation',     'href' => 'specialisation.php'],
-  ['slug' => 'coursewise', 'label' => 'Course Wise',  'icon' => 'coursewise',     'href' => 'coursewise.php'],
+  ['slug' => 'curriculum',       'label' => 'Curriculum',  'icon' => 'curriculum',     'href' => 'curriculum.php'],
+  ['slug' => 'specialisation',   'label' => 'Specialisation',  'icon' => 'specialisation',     'href' => 'specialisation.php'],
+  ['slug' => 'coursewise',       'label' => 'Course section',  'icon' => 'coursewise',     'href' => 'coursewise.php'],
+  ['slug' => 'globalwise',      'label' => 'Global section',  'icon' => 'globalwise',     'href' => 'globalwise.php'],
   ['slug' => 'courses',         'label' => 'Courses',          'icon' => 'book-open',  'href' => 'courses.php'],
   ['slug' => 'locations',       'label' => 'Locations',        'icon' => 'map-pin',    'href' => 'locations.php'],
 ];
@@ -22,6 +23,7 @@ $icons = [
   'curriculum'=>'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">  <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />  <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" /></svg>',
   'specialisation' => '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">  <path d="M4 19.5V4a2 2 0 0 1 2-2h14v18H6.5a2.5 2.5 0 0 1-2.5-2Z" />  <path d="M12 2v20" />  <path d="M16 6h4v8h-4z"/></svg>',
   'coursewise' =>  '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">  <path d="M12 3L2 9l10 6 10-6-10-6Z"/>  <path d="M2 15l10 6 10-6"/>  <path d="M2 9v6"/>  <path d="M22 9v6"/></svg>',
+  'globalwise' => '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">  <circle cx="12" cy="12" r="10" />  <line x1="2" y1="12" x2="22" y2="12" />  <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" /></svg>',
   'register' => '<svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">  <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>  <circle cx="9" cy="7" r="4"/>  <line x1="19" y1="8" x2="19" y2="14"/>  <line x1="22" y1="11" x2="16" y2="11"/></svg>',
 ];
 $register="/da360-admin/register.php";
