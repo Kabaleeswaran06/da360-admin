@@ -3,6 +3,9 @@
 $allowedOrigins = [
     'http://localhost:3000',
     'http://localhost',
+    'https://www.digitalacademy360.com',
+    'https://digitalacademy360.com',
+    'https://dev2.digitalacademy360.com',
 ];
 $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
 if (in_array($origin, $allowedOrigins, true)) {
@@ -265,7 +268,7 @@ try {
   <!-- ── Tab bar ── -->
   <div class="tab-bar">
     <button class="tab-btn active" data-tab="herocount">🔢 Hero Counts</button>
-    <button class="tab-btn"        data-tab="video">🎬 Video URL</button>
+    <button class="tab-btn"        data-tab="video">🎬 Campus Tour</button>
     <button class="tab-btn"        data-tab="stories">🏆 Success Stories</button>
     <button class="tab-btn"        data-tab="lifevideo">🎥 Life @ DA360</button>
     <button class="tab-btn"        data-tab="faculty">👩‍🏫 Faculty</button>
