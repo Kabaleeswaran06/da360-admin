@@ -5,6 +5,7 @@ requireLogin();
 
 include __DIR__ . '/partials/header.php';
 include __DIR__ . '/partials/sidebar.php';
+
 ?>
 
 <main class="main-content" data-page="globalwise">
