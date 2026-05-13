@@ -17,11 +17,11 @@ include __DIR__ . '/partials/sidebar.php';
     <div class="breadcrumb">
       <a href="/da360-admin/dashboard.php">Home</a>
       <span class="breadcrumb-sep">/</span>
-      <span>Coursewise Manager</span>
+      <span>Courses section Manager</span>
     </div>
     <div class="page-header-inner">
       <div>
-        <h1 class="page-title">Coursewise <span>Manager</span></h1>
+        <h1 class="page-title">Course <span>Manager</span></h1>
         <p class="page-subtitle">Manage highlights, tools, case studies and live projects by course</p>
       </div>
     </div>
