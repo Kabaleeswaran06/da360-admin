@@ -66,8 +66,8 @@ try {
     // GET /globalwise_api.php?action=get_globalwise_json&api_key=XXX
     // ══════════════════════════════════════════════════════════════════════════
     if ($action === 'get_globalwise_json') {
-        $base_url = 'http://localhost/da360-admin';
-        // $base_url = 'https://confirmation.digitalacademy360.com/da360-admin';
+        // $base_url = 'http://localhost/da360-admin';
+        $base_url = 'https://confirmation.digitalacademy360.com/da360-admin';
 
         // ── Hero Counts ───────────────────────────────────────────────────
         $stmt = $db->query("SELECT slot, count_value, count_label FROM global_hero_counts ORDER BY slot");
