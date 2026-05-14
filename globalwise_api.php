@@ -63,10 +63,8 @@ try {
 
     // ══════════════════════════════════════════════════════════════════════════
     // GET GLOBALWISE JSON — for Next.js frontend
-    // GET /globalwise_api.php?action=get_globalwise_json&api_key=XXX
     // ══════════════════════════════════════════════════════════════════════════
     if ($action === 'get_globalwise_json') {
-        // $base_url = 'http://localhost/da360-admin';
         $base_url = 'https://confirmation.digitalacademy360.com/da360-admin';
 
         // ── Hero Counts ───────────────────────────────────────────────────
@@ -98,6 +96,27 @@ try {
             $lv['img'] = $lv['img'] ? $base_url . $lv['img'] : '';
         } unset($lv);
 
+        // ── Guest Faculty ─────────────────────────────────────────────────
+        $stmt = $db->query("SELECT id, name, name_popup, title, expertise, description, profile_image, profile_image_popup FROM guest_faculty ORDER BY sort_order, id");
+        $gfRows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $guestFaculty = [];
+        foreach ($gfRows as $gf) {
+            $gfId = (int)$gf['id'];
+            $stmt2 = $db->prepare("SELECT logo FROM guest_faculty_logos WHERE faculty_id = ? ORDER BY sort_order");
+            $stmt2->execute([$gfId]);
+            $logos = array_map(fn($l) => $base_url . $l, $stmt2->fetchAll(PDO::FETCH_COLUMN));
+            $guestFaculty[] = [
+                'name'              => $gf['name'],
+                'namePopup'         => $gf['name_popup'],
+                'title'             => $gf['title'],
+                'expertise'         => $gf['expertise'],
+                'description'       => $gf['description'],
+                'profileImage'      => $gf['profile_image']       ? $base_url . $gf['profile_image']       : '',
+                'profileImagePopup' => $gf['profile_image_popup'] ? $base_url . $gf['profile_image_popup'] : '',
+                'logos'             => array_values($logos),
+            ];
+        }
+
         // ── Faculty ───────────────────────────────────────────────────────
         $stmt = $db->query("SELECT name, role, experience, img, linkedin_link, tab, text_color, icon, icon_img, icon_position FROM global_faculty ORDER BY sort_order");
         $faculty = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -112,10 +131,7 @@ try {
 
         // ── Banners ───────────────────────────────────────────────────────
         $stmt = $db->query("SELECT image_url FROM global_banners ORDER BY sort_order");
-        $banners = array_map(
-            fn($r) => $base_url . $r['image_url'],
-            $stmt->fetchAll(PDO::FETCH_ASSOC)
-        );
+        $banners = array_map(fn($r) => $base_url . $r['image_url'], $stmt->fetchAll(PDO::FETCH_ASSOC));
 
         // ── Blog Posts ────────────────────────────────────────────────────
         $stmt = $db->query("SELECT img_src, category, title, link FROM global_blog_posts ORDER BY sort_order");
@@ -133,31 +149,28 @@ try {
         } unset($m);
 
         echo json_encode([
-            'success'       => true,
-            'heroCounts'    => $heroCounts,
-            'videoUrl'      => $videoUrl,
-            'successStories'=> $stories,
-            'lifeVideos'    => $lifeVideos,
-            'faculty'       => $faculty,
-            'banners'       => $banners,
-            'blogPosts'     => $blogs,
-            'mediaLogos'    => $media,
+            'success'        => true,
+            'heroCounts'     => $heroCounts,
+            'videoUrl'       => $videoUrl,
+            'successStories' => $stories,
+            'lifeVideos'     => $lifeVideos,
+            'guestFaculty'   => $guestFaculty,
+            'faculty'        => $faculty,
+            'banners'        => $banners,
+            'blogPosts'      => $blogs,
+            'mediaLogos'     => $media,
         ]);
         exit;
     }
 
     // ══════════════════════════════════════════════════════════════════════════
     // GET GLOBALWISE HTML — for CMS admin editor
-    // GET /globalwise_api.php?action=get_globalwise_html
     // ══════════════════════════════════════════════════════════════════════════
     if ($action === 'get_globalwise_html') {
-
-        // ── Fetch all data ────────────────────────────────────────────────
 
         // Hero Counts (3 fixed slots)
         $stmt = $db->query("SELECT id, slot, count_value, count_label FROM global_hero_counts ORDER BY slot");
         $heroCounts = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        // Ensure 3 slots always present
         $hcMap = [];
         foreach ($heroCounts as $hc) $hcMap[(int)$hc['slot']] = $hc;
         for ($i = 1; $i <= 3; $i++) {
@@ -184,6 +197,18 @@ try {
         }
         ksort($lvMap);
 
+        // Guest Faculty
+        $stmt = $db->query("SELECT id, name, name_popup, title, expertise, description, profile_image, profile_image_popup, sort_order FROM guest_faculty ORDER BY sort_order, id");
+        $gfRows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $guestFacultyList = [];
+        foreach ($gfRows as $gf) {
+            $gfId = (int)$gf['id'];
+            $stmt2 = $db->prepare("SELECT id, logo, sort_order FROM guest_faculty_logos WHERE faculty_id = ? ORDER BY sort_order");
+            $stmt2->execute([$gfId]);
+            $gf['logos'] = $stmt2->fetchAll(PDO::FETCH_ASSOC);
+            $guestFacultyList[] = $gf;
+        }
+
         // Faculty
         $stmt = $db->query("SELECT id, name, role, experience, img, linkedin_link, tab, text_color, icon, icon_img, icon_position, sort_order FROM global_faculty ORDER BY sort_order");
         $faculty = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -204,8 +229,6 @@ try {
 <style>
 .gw *, .gw *::before, .gw *::after { box-sizing: border-box; }
 .gw { font-family: system-ui, sans-serif; color: #1e293b; }
-
-/* ── Tabs ── */
 .gw .tab-bar { display:flex; gap:4px; border-bottom:2px solid #e2e8f0; margin-bottom:20px; flex-wrap:wrap; }
 .gw .tab-btn {
     display:inline-flex; align-items:center; gap:6px;
@@ -219,10 +242,8 @@ try {
 .gw .tab-btn.active { background:#fff; color:#6366f1; border-left:1px solid #e2e8f0; border-right:1px solid #e2e8f0; border-top:2px solid #6366f1; border-bottom:2px solid #fff; }
 .gw .tab-pane { display:none; }
 .gw .tab-pane.active { display:block; }
-
 .gw .section-card { background:transparent; border:none; margin-bottom:0; overflow:visible; }
 .gw .section-body  { padding:0; display:block; }
-
 .gw label { display:block; font-size:12px; font-weight:600; color:#64748b; margin-bottom:4px; text-transform:uppercase; letter-spacing:.4px; }
 .gw input[type=text], .gw input[type=url], .gw input[type=number], .gw textarea, .gw select {
     width:100%; padding:9px 12px; border:1.5px solid #cbd5e1; border-radius:6px;
@@ -234,7 +255,6 @@ try {
 .gw .field-row   { margin-bottom:14px; }
 .gw .field-2col  { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:14px; }
 .gw .field-3col  { display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; margin-bottom:14px; }
-
 .gw .btn { display:inline-flex; align-items:center; gap:6px; padding:8px 14px; border:none; border-radius:6px; font-size:13px; font-weight:600; cursor:pointer; transition:opacity .15s; }
 .gw .btn:hover { opacity:.85; }
 .gw .btn-primary { background:#6366f1; color:#fff; }
@@ -242,23 +262,19 @@ try {
 .gw .btn-danger  { background:#ef4444; color:#fff; }
 .gw .btn-sm      { padding:5px 10px; font-size:12px; }
 .gw .btn-plus    { background:#e0f2fe; color:#0284c7; border:1.5px dashed #7dd3fc; }
-
 .gw .item-block  { border:1.5px solid #e2e8f0; border-radius:10px; margin-bottom:14px; background:#fff; }
 .gw .item-header { display:flex; align-items:center; justify-content:space-between; padding:12px 16px; background:#f8fafc; border-bottom:1px solid #e2e8f0; border-radius:10px 10px 0 0; cursor:pointer; }
 .gw .item-num    { width:28px; height:28px; border-radius:50%; background:#6366f1; color:#fff; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; flex-shrink:0; }
 .gw .item-title-text { font-size:14px; font-weight:600; color:#1e293b; margin-left:10px; flex:1; }
 .gw .item-body   { padding:16px; display:none; }
 .gw .item-body.open { display:block; }
-
 .gw .img-preview    { width:60px; height:60px; object-fit:contain; border:1px solid #e2e8f0; border-radius:6px; margin-bottom:6px; background:#f8fafc; display:block; }
 .gw .img-preview-lg { width:120px; height:60px; object-fit:contain; border:1px solid #e2e8f0; border-radius:6px; margin-bottom:6px; background:#f8fafc; display:block; }
-
 .gw .info-card       { background:#fff; border:1.5px solid #e2e8f0; border-radius:10px; padding:20px; margin-bottom:18px; }
 .gw .info-card-title { font-size:12px; font-weight:700; color:#6366f1; text-transform:uppercase; letter-spacing:.5px; margin-bottom:14px; }
 .gw .slot-label      { font-size:11px; font-weight:700; color:#9333ea; text-transform:uppercase; letter-spacing:.4px; margin-bottom:8px; }
-
-.gw .saving { opacity:.5; pointer-events:none; }
-.gw .saved  { background:#dcfce7 !important; transition:background .4s; }
+.gw .saving  { opacity:.5; pointer-events:none; }
+.gw .saved   { background:#dcfce7 !important; transition:background .4s; }
 .gw .errored { background:#fee2e2 !important; }
 .gw .divider { border:none; border-top:1px solid #e2e8f0; margin:16px 0; }
 </style>
@@ -271,15 +287,14 @@ try {
     <button class="tab-btn"        data-tab="video">🎬 Campus Tour</button>
     <button class="tab-btn"        data-tab="stories">🏆 Success Stories</button>
     <button class="tab-btn"        data-tab="lifevideo">🎥 Life @ DA360</button>
+    <button class="tab-btn"        data-tab="guestfaculty">🎓 Guest Faculty</button>
     <button class="tab-btn"        data-tab="faculty">👩‍🏫 Faculty</button>
     <button class="tab-btn"        data-tab="banners">🖼️ Banners</button>
     <button class="tab-btn"        data-tab="blogs">📝 Blog Posts</button>
     <button class="tab-btn"        data-tab="media">🏅 Media &amp; Awards</button>
   </div>
 
-  <!-- ═══════════════════════════════════════════════════════════════════
-       TAB 1 — HERO COUNTS (3 fixed slots)
-  ════════════════════════════════════════════════════════════════════ -->
+  <!-- TAB 1 — HERO COUNTS -->
   <div class="tab-pane active" id="tab-pane-herocount">
     <div class="info-card">
       <div class="info-card-title">🔢 Hero Section Counts (3 fixed slots)</div>
@@ -287,14 +302,8 @@ try {
       <div style="border:1.5px solid #e2e8f0;border-radius:8px;padding:16px;margin-bottom:14px;" data-hc-slot="<?= $slot ?>" data-hc-id="<?= (int)$hc['id'] ?>">
         <div class="slot-label">Slot <?= $slot ?></div>
         <div class="field-2col">
-          <div class="field-row">
-            <label>Count Value</label>
-            <input type="text" class="hc-count-value" value="<?= htmlspecialchars($hc['count_value']) ?>" placeholder="e.g. 10,000+">
-          </div>
-          <div class="field-row">
-            <label>Label</label>
-            <input type="text" class="hc-count-label" value="<?= htmlspecialchars($hc['count_label']) ?>" placeholder="e.g. Students Trained">
-          </div>
+          <div class="field-row"><label>Count Value</label><input type="text" class="hc-count-value" value="<?= htmlspecialchars($hc['count_value']) ?>" placeholder="e.g. 10,000+"></div>
+          <div class="field-row"><label>Label</label><input type="text" class="hc-count-label" value="<?= htmlspecialchars($hc['count_label']) ?>" placeholder="e.g. Students Trained"></div>
         </div>
         <button class="btn btn-success btn-sm" data-action="save-herocount">💾 Save Slot <?= $slot ?></button>
       </div>
@@ -302,9 +311,7 @@ try {
     </div>
   </div>
 
-  <!-- ═══════════════════════════════════════════════════════════════════
-       TAB 2 — VIDEO URL (single)
-  ════════════════════════════════════════════════════════════════════ -->
+  <!-- TAB 2 — VIDEO URL -->
   <div class="tab-pane" id="tab-pane-video">
     <div class="info-card">
       <div class="info-card-title">🎬 Main Video URL</div>
@@ -316,9 +323,7 @@ try {
     </div>
   </div>
 
-  <!-- ═══════════════════════════════════════════════════════════════════
-       TAB 3 — SUCCESS STORIES
-  ════════════════════════════════════════════════════════════════════ -->
+  <!-- TAB 3 — SUCCESS STORIES -->
   <div class="tab-pane" id="tab-pane-stories">
     <div id="stories-container">
       <?php foreach ($stories as $si => $story): ?>
@@ -335,47 +340,24 @@ try {
         </div>
         <div class="item-body open" id="item-body-story-<?= $si ?>">
           <div class="field-3col">
-            <div class="field-row">
-              <label>Name</label>
-              <input type="text" class="st-name" value="<?= htmlspecialchars($story['name']) ?>" placeholder="Student name">
-            </div>
-            <div class="field-row">
-              <label>Company Name</label>
-              <input type="text" class="st-company-name" value="<?= htmlspecialchars($story['company_name']) ?>" placeholder="e.g. Jeet">
-            </div>
-            <div class="field-row">
-              <label>Package LPA</label>
-              <input type="text" class="st-package-lpa" value="<?= htmlspecialchars($story['package_lpa']) ?>" placeholder="e.g. 5 LPA">
-            </div>
+            <div class="field-row"><label>Name</label><input type="text" class="st-name" value="<?= htmlspecialchars($story['name']) ?>" placeholder="Student name"></div>
+            <div class="field-row"><label>Company Name</label><input type="text" class="st-company-name" value="<?= htmlspecialchars($story['company_name']) ?>" placeholder="e.g. Jeet"></div>
+            <div class="field-row"><label>Package LPA</label><input type="text" class="st-package-lpa" value="<?= htmlspecialchars($story['package_lpa']) ?>" placeholder="e.g. 5 LPA"></div>
           </div>
           <div class="field-2col">
-            <div class="field-row">
-              <label>Previous Role</label>
-              <input type="text" class="st-previous-role" value="<?= htmlspecialchars($story['previous_role']) ?>" placeholder="e.g. SEO Analyst">
-            </div>
-            <div class="field-row">
-              <label>New Role</label>
-              <input type="text" class="st-new-role" value="<?= htmlspecialchars($story['new_role']) ?>" placeholder="e.g. Fresher">
-            </div>
+            <div class="field-row"><label>Previous Role</label><input type="text" class="st-previous-role" value="<?= htmlspecialchars($story['previous_role']) ?>" placeholder="e.g. SEO Analyst"></div>
+            <div class="field-row"><label>New Role</label><input type="text" class="st-new-role" value="<?= htmlspecialchars($story['new_role']) ?>" placeholder="e.g. Fresher"></div>
           </div>
           <div class="field-2col">
             <div>
               <label>Profile Image</label>
-              <?php if ($story['profile_image']): ?>
-                <img src="/da360-admin<?= htmlspecialchars($story['profile_image']) ?>" class="img-preview st-profile-preview" alt="profile">
-              <?php else: ?>
-                <img src="" class="img-preview st-profile-preview" style="display:none;" alt="profile">
-              <?php endif; ?>
+              <?php if ($story['profile_image']): ?><img src="/da360-admin<?= htmlspecialchars($story['profile_image']) ?>" class="img-preview st-profile-preview" alt="profile"><?php else: ?><img src="" class="img-preview st-profile-preview" style="display:none;" alt="profile"><?php endif; ?>
               <input type="file" class="st-profile-file" accept="image/*" style="margin-top:4px;">
               <input type="hidden" class="st-profile-path" value="<?= htmlspecialchars($story['profile_image']) ?>">
             </div>
             <div>
               <label>Company Logo</label>
-              <?php if ($story['company_logo']): ?>
-                <img src="/da360-admin<?= htmlspecialchars($story['company_logo']) ?>" class="img-preview st-logo-preview" alt="logo">
-              <?php else: ?>
-                <img src="" class="img-preview st-logo-preview" style="display:none;" alt="logo">
-              <?php endif; ?>
+              <?php if ($story['company_logo']): ?><img src="/da360-admin<?= htmlspecialchars($story['company_logo']) ?>" class="img-preview st-logo-preview" alt="logo"><?php else: ?><img src="" class="img-preview st-logo-preview" style="display:none;" alt="logo"><?php endif; ?>
               <input type="file" class="st-logo-file" accept="image/*" style="margin-top:4px;">
               <input type="hidden" class="st-logo-path" value="<?= htmlspecialchars($story['company_logo']) ?>">
             </div>
@@ -387,30 +369,18 @@ try {
     <button class="btn btn-plus" data-action="add-story">＋ Add Success Story</button>
   </div>
 
-  <!-- ═══════════════════════════════════════════════════════════════════
-       TAB 4 — LIFE @ DA360 (4 fixed video slots)
-  ════════════════════════════════════════════════════════════════════ -->
+  <!-- TAB 4 — LIFE @ DA360 -->
   <div class="tab-pane" id="tab-pane-lifevideo">
     <div class="info-card">
       <div class="info-card-title">🎥 Life @ DA360 Videos (4 fixed slots)</div>
       <?php foreach ($lvMap as $slot => $lv): ?>
       <div style="border:1.5px solid #e2e8f0;border-radius:8px;padding:16px;margin-bottom:14px;" data-lv-slot="<?= $slot ?>" data-lv-id="<?= (int)$lv['id'] ?>">
         <div class="slot-label">Slide <?= $slot ?></div>
-        <div class="field-row">
-          <label>Title</label>
-          <input type="text" class="lv-title" value="<?= htmlspecialchars($lv['title']) ?>" placeholder="e.g. AI IN DIGITAL MARKETING BOOTCAMP">
-        </div>
-        <div class="field-row">
-          <label>Video URL</label>
-          <input type="url" class="lv-video-url" value="<?= htmlspecialchars($lv['video_url']) ?>" placeholder="https://asset.digitalacademy360.com/...">
-        </div>
+        <div class="field-row"><label>Title</label><input type="text" class="lv-title" value="<?= htmlspecialchars($lv['title']) ?>" placeholder="e.g. AI IN DIGITAL MARKETING BOOTCAMP"></div>
+        <div class="field-row"><label>Video URL</label><input type="url" class="lv-video-url" value="<?= htmlspecialchars($lv['video_url']) ?>" placeholder="https://asset.digitalacademy360.com/..."></div>
         <div class="field-row">
           <label>Thumbnail Image</label>
-          <?php if ($lv['img']): ?>
-            <img src="/da360-admin<?= htmlspecialchars($lv['img']) ?>" class="img-preview-lg lv-img-preview" alt="thumb">
-          <?php else: ?>
-            <img src="" class="img-preview-lg lv-img-preview" style="display:none;" alt="thumb">
-          <?php endif; ?>
+          <?php if ($lv['img']): ?><img src="/da360-admin<?= htmlspecialchars($lv['img']) ?>" class="img-preview-lg lv-img-preview" alt="thumb"><?php else: ?><img src="" class="img-preview-lg lv-img-preview" style="display:none;" alt="thumb"><?php endif; ?>
           <input type="file" class="lv-img-file" accept="image/*" style="margin-top:4px;">
           <input type="hidden" class="lv-img-path" value="<?= htmlspecialchars($lv['img']) ?>">
         </div>
@@ -420,9 +390,67 @@ try {
     </div>
   </div>
 
-  <!-- ═══════════════════════════════════════════════════════════════════
-       TAB 5 — FACULTY
-  ════════════════════════════════════════════════════════════════════ -->
+  <!-- TAB 5 — GUEST FACULTY -->
+  <div class="tab-pane" id="tab-pane-guestfaculty">
+    <div id="guestfaculty-container">
+      <?php foreach ($guestFacultyList as $gfi => $gf): ?>
+      <div class="item-block" data-item-id="<?= (int)$gf['id'] ?>" data-item-index="<?= $gfi ?>" data-sort="<?= (int)$gf['sort_order'] ?>">
+        <div class="item-header" data-toggle-item="gf-<?= $gfi ?>">
+          <div style="display:flex;align-items:center;flex:1;gap:10px;">
+            <?php if ($gf['profile_image']): ?><img src="/da360-admin<?= htmlspecialchars($gf['profile_image']) ?>" style="width:34px;height:34px;border-radius:50%;object-fit:cover;border:1.5px solid #e2e8f0;" alt=""><?php endif; ?>
+            <div class="item-num"><?= $gfi+1 ?></div>
+            <span class="item-title-text"><?= htmlspecialchars($gf['name']) ?></span>
+            <span style="font-size:12px;color:#94a3b8;"><?= htmlspecialchars($gf['title']) ?></span>
+          </div>
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-success btn-sm" data-action="save-guestfaculty">💾 Save</button>
+            <button class="btn btn-danger btn-sm"  data-action="delete-guestfaculty">🗑</button>
+          </div>
+        </div>
+        <div class="item-body open" id="item-body-gf-<?= $gfi ?>">
+          <div class="field-2col">
+            <div>
+              <label>Profile Image (Card)</label>
+              <?php if ($gf['profile_image']): ?><img src="/da360-admin<?= htmlspecialchars($gf['profile_image']) ?>" class="img-preview gf-profile-preview" alt="profile"><?php else: ?><img src="" class="img-preview gf-profile-preview" style="display:none;" alt="profile"><?php endif; ?>
+              <input type="file" class="gf-profile-file" accept="image/*" style="margin-top:4px;">
+              <input type="hidden" class="gf-profile-path" value="<?= htmlspecialchars($gf['profile_image']) ?>">
+            </div>
+            <div>
+              <label>Profile Image (Popup)</label>
+              <?php if ($gf['profile_image_popup']): ?><img src="/da360-admin<?= htmlspecialchars($gf['profile_image_popup']) ?>" class="img-preview gf-popup-preview" alt="popup"><?php else: ?><img src="" class="img-preview gf-popup-preview" style="display:none;" alt="popup"><?php endif; ?>
+              <input type="file" class="gf-popup-file" accept="image/*" style="margin-top:4px;">
+              <input type="hidden" class="gf-popup-path" value="<?= htmlspecialchars($gf['profile_image_popup']) ?>">
+            </div>
+          </div>
+          <div class="field-2col">
+            <div class="field-row"><label>Name</label><input type="text" class="gf-name" value="<?= htmlspecialchars($gf['name']) ?>" placeholder="e.g. Rajesh Choudhury"></div>
+            <div class="field-row"><label>Name Popup <span style="font-weight:400;color:#94a3b8;">(use &lt;br/&gt; for line break)</span></label><input type="text" class="gf-name-popup" value="<?= htmlspecialchars($gf['name_popup']) ?>" placeholder="e.g. Rajesh &lt;br/&gt; Choudhury"></div>
+          </div>
+          <div class="field-row"><label>Title / Role</label><input type="text" class="gf-title" value="<?= htmlspecialchars($gf['title']) ?>" placeholder="e.g. DGM Digital Marketing at Purvankara"></div>
+          <div class="field-row"><label>Expertise</label><textarea class="gf-expertise" rows="2"><?= htmlspecialchars($gf['expertise']) ?></textarea></div>
+          <div class="field-row"><label>Description</label><textarea class="gf-description" rows="3"><?= htmlspecialchars($gf['description']) ?></textarea></div>
+          <div class="field-row">
+            <label>Company Logos</label>
+            <div class="gf-logos-list" id="gf-logos-<?= $gfi ?>">
+              <?php foreach ($gf['logos'] as $lgi => $logo): ?>
+              <div class="gf-logo-row" data-logo-id="<?= (int)$logo['id'] ?>" data-sort="<?= $lgi+1 ?>" style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                <?php if ($logo['logo']): ?><img src="/da360-admin<?= htmlspecialchars($logo['logo']) ?>" class="gf-logo-thumb" style="width:40px;height:40px;object-fit:contain;border:1px solid #e2e8f0;border-radius:4px;" alt="logo"><?php else: ?><img src="" class="gf-logo-thumb" style="width:40px;height:40px;object-fit:contain;border:1px solid #e2e8f0;border-radius:4px;display:none;" alt="logo"><?php endif; ?>
+                <input type="hidden" class="gf-logo-path" value="<?= htmlspecialchars($logo['logo']) ?>">
+                <input type="file" class="gf-logo-file" accept="image/*">
+                <button class="btn btn-danger btn-sm" data-action="delete-gf-logo">✕</button>
+              </div>
+              <?php endforeach; ?>
+            </div>
+            <button class="btn btn-plus btn-sm" data-action="add-gf-logo" data-gf-index="<?= $gfi ?>" style="margin-top:4px;">＋ Add Logo</button>
+          </div>
+        </div>
+      </div>
+      <?php endforeach; ?>
+    </div>
+    <button class="btn btn-plus" data-action="add-guestfaculty">＋ Add Guest Faculty</button>
+  </div>
+
+  <!-- TAB 6 — FACULTY -->
   <div class="tab-pane" id="tab-pane-faculty">
     <div id="faculty-container">
       <?php foreach ($faculty as $fi => $fac): ?>
@@ -439,24 +467,12 @@ try {
         </div>
         <div class="item-body open" id="item-body-fac-<?= $fi ?>">
           <div class="field-3col">
-            <div class="field-row">
-              <label>Name</label>
-              <input type="text" class="fac-name" value="<?= htmlspecialchars($fac['name']) ?>" placeholder="e.g. Deepak">
-            </div>
-            <div class="field-row">
-              <label>Role</label>
-              <input type="text" class="fac-role" value="<?= htmlspecialchars($fac['role']) ?>" placeholder="e.g. Head of Academics">
-            </div>
-            <div class="field-row">
-              <label>Experience</label>
-              <input type="text" class="fac-experience" value="<?= htmlspecialchars($fac['experience']) ?>" placeholder="e.g. 12 years Experience">
-            </div>
+            <div class="field-row"><label>Name</label><input type="text" class="fac-name" value="<?= htmlspecialchars($fac['name']) ?>" placeholder="e.g. Deepak"></div>
+            <div class="field-row"><label>Role</label><input type="text" class="fac-role" value="<?= htmlspecialchars($fac['role']) ?>" placeholder="e.g. Head of Academics"></div>
+            <div class="field-row"><label>Experience</label><input type="text" class="fac-experience" value="<?= htmlspecialchars($fac['experience']) ?>" placeholder="e.g. 12 years Experience"></div>
           </div>
           <div class="field-2col">
-            <div class="field-row">
-              <label>LinkedIn URL</label>
-              <input type="url" class="fac-linkedin" value="<?= htmlspecialchars($fac['linkedin_link']) ?>" placeholder="https://linkedin.com/in/...">
-            </div>
+            <div class="field-row"><label>LinkedIn URL</label><input type="url" class="fac-linkedin" value="<?= htmlspecialchars($fac['linkedin_link']) ?>" placeholder="https://linkedin.com/in/..."></div>
             <div class="field-row">
               <label>Tab Group</label>
               <select class="fac-tab">
@@ -467,10 +483,7 @@ try {
             </div>
           </div>
           <div class="field-3col">
-            <div class="field-row">
-              <label>Text Color (hex)</label>
-              <input type="text" class="fac-text-color" value="<?= htmlspecialchars($fac['text_color']) ?>" placeholder="e.g. #FFF12D">
-            </div>
+            <div class="field-row"><label>Text Color (hex)</label><input type="text" class="fac-text-color" value="<?= htmlspecialchars($fac['text_color']) ?>" placeholder="e.g. #FFF12D"></div>
             <div class="field-row">
               <label>Icon</label>
               <select class="fac-icon">
@@ -491,21 +504,13 @@ try {
           <div class="field-2col">
             <div>
               <label>Profile Image</label>
-              <?php if ($fac['img']): ?>
-                <img src="/da360-admin<?= htmlspecialchars($fac['img']) ?>" class="img-preview fac-img-preview" alt="photo">
-              <?php else: ?>
-                <img src="" class="img-preview fac-img-preview" style="display:none;" alt="photo">
-              <?php endif; ?>
+              <?php if ($fac['img']): ?><img src="/da360-admin<?= htmlspecialchars($fac['img']) ?>" class="img-preview fac-img-preview" alt="photo"><?php else: ?><img src="" class="img-preview fac-img-preview" style="display:none;" alt="photo"><?php endif; ?>
               <input type="file" class="fac-img-file" accept="image/*" style="margin-top:4px;">
               <input type="hidden" class="fac-img-path" value="<?= htmlspecialchars($fac['img']) ?>">
             </div>
             <div>
               <label>Icon Image (optional)</label>
-              <?php if ($fac['icon_img']): ?>
-                <img src="/da360-admin<?= htmlspecialchars($fac['icon_img']) ?>" class="img-preview fac-iconimg-preview" alt="icon">
-              <?php else: ?>
-                <img src="" class="img-preview fac-iconimg-preview" style="display:none;" alt="icon">
-              <?php endif; ?>
+              <?php if ($fac['icon_img']): ?><img src="/da360-admin<?= htmlspecialchars($fac['icon_img']) ?>" class="img-preview fac-iconimg-preview" alt="icon"><?php else: ?><img src="" class="img-preview fac-iconimg-preview" style="display:none;" alt="icon"><?php endif; ?>
               <input type="file" class="fac-iconimg-file" accept="image/*" style="margin-top:4px;">
               <input type="hidden" class="fac-iconimg-path" value="<?= htmlspecialchars($fac['icon_img']) ?>">
             </div>
@@ -517,9 +522,7 @@ try {
     <button class="btn btn-plus" data-action="add-faculty">＋ Add Faculty Member</button>
   </div>
 
-  <!-- ═══════════════════════════════════════════════════════════════════
-       TAB 6 — BANNERS (list)
-  ════════════════════════════════════════════════════════════════════ -->
+  <!-- TAB 7 — BANNERS -->
   <div class="tab-pane" id="tab-pane-banners">
     <div id="banners-container">
       <?php foreach ($banners as $bi => $banner): ?>
@@ -535,11 +538,7 @@ try {
           </div>
         </div>
         <div class="item-body open" style="display:block;">
-          <?php if ($banner['image_url']): ?>
-            <img src="/da360-admin<?= htmlspecialchars($banner['image_url']) ?>" class="img-preview-lg bn-img-preview" alt="banner">
-          <?php else: ?>
-            <img src="" class="img-preview-lg bn-img-preview" style="display:none;" alt="banner">
-          <?php endif; ?>
+          <?php if ($banner['image_url']): ?><img src="/da360-admin<?= htmlspecialchars($banner['image_url']) ?>" class="img-preview-lg bn-img-preview" alt="banner"><?php else: ?><img src="" class="img-preview-lg bn-img-preview" style="display:none;" alt="banner"><?php endif; ?>
           <input type="file" class="bn-img-file" accept="image/*" style="margin-top:4px;">
           <input type="hidden" class="bn-img-path" value="<?= htmlspecialchars($banner['image_url']) ?>">
         </div>
@@ -549,9 +548,7 @@ try {
     <button class="btn btn-plus" data-action="add-banner">＋ Add Banner</button>
   </div>
 
-  <!-- ═══════════════════════════════════════════════════════════════════
-       TAB 7 — BLOG POSTS
-  ════════════════════════════════════════════════════════════════════ -->
+  <!-- TAB 8 — BLOG POSTS -->
   <div class="tab-pane" id="tab-pane-blogs">
     <div id="blogs-container">
       <?php foreach ($blogs as $bli => $blog): ?>
@@ -568,26 +565,13 @@ try {
         </div>
         <div class="item-body open" id="item-body-blog-<?= $bli ?>">
           <div class="field-2col">
-            <div class="field-row">
-              <label>Category</label>
-              <input type="text" class="bl-category" value="<?= htmlspecialchars($blog['category']) ?>" placeholder="e.g. Digital Marketing">
-            </div>
-            <div class="field-row">
-              <label>Title</label>
-              <input type="text" class="bl-title" value="<?= htmlspecialchars($blog['title']) ?>" placeholder="Blog post title">
-            </div>
+            <div class="field-row"><label>Category</label><input type="text" class="bl-category" value="<?= htmlspecialchars($blog['category']) ?>" placeholder="e.g. Digital Marketing"></div>
+            <div class="field-row"><label>Title</label><input type="text" class="bl-title" value="<?= htmlspecialchars($blog['title']) ?>" placeholder="Blog post title"></div>
           </div>
-          <div class="field-row">
-            <label>Link (full URL)</label>
-            <input type="url" class="bl-link" value="<?= htmlspecialchars($blog['link']) ?>" placeholder="https://blog.digitalacademy360.com/...">
-          </div>
+          <div class="field-row"><label>Link (full URL)</label><input type="url" class="bl-link" value="<?= htmlspecialchars($blog['link']) ?>" placeholder="https://blog.digitalacademy360.com/..."></div>
           <div>
             <label>Blog Image</label>
-            <?php if ($blog['img_src']): ?>
-              <img src="/da360-admin<?= htmlspecialchars($blog['img_src']) ?>" class="img-preview-lg bl-img-preview" alt="blog">
-            <?php else: ?>
-              <img src="" class="img-preview-lg bl-img-preview" style="display:none;" alt="blog">
-            <?php endif; ?>
+            <?php if ($blog['img_src']): ?><img src="/da360-admin<?= htmlspecialchars($blog['img_src']) ?>" class="img-preview-lg bl-img-preview" alt="blog"><?php else: ?><img src="" class="img-preview-lg bl-img-preview" style="display:none;" alt="blog"><?php endif; ?>
             <input type="file" class="bl-img-file" accept="image/*" style="margin-top:4px;">
             <input type="hidden" class="bl-img-path" value="<?= htmlspecialchars($blog['img_src']) ?>">
           </div>
@@ -598,9 +582,7 @@ try {
     <button class="btn btn-plus" data-action="add-blog">＋ Add Blog Post</button>
   </div>
 
-  <!-- ═══════════════════════════════════════════════════════════════════
-       TAB 8 — MEDIA & AWARDS
-  ════════════════════════════════════════════════════════════════════ -->
+  <!-- TAB 9 — MEDIA & AWARDS -->
   <div class="tab-pane" id="tab-pane-media">
     <div id="media-container">
       <?php foreach ($media as $mi => $med): ?>
@@ -616,15 +598,8 @@ try {
           </div>
         </div>
         <div class="item-body open" style="display:block;">
-          <div class="field-row">
-            <label>Alt Text</label>
-            <input type="text" class="md-alt" value="<?= htmlspecialchars($med['alt']) ?>" placeholder="e.g. The Times of India">
-          </div>
-          <?php if ($med['src']): ?>
-            <img src="/da360-admin<?= htmlspecialchars($med['src']) ?>" class="img-preview md-img-preview" alt="media">
-          <?php else: ?>
-            <img src="" class="img-preview md-img-preview" style="display:none;" alt="media">
-          <?php endif; ?>
+          <div class="field-row"><label>Alt Text</label><input type="text" class="md-alt" value="<?= htmlspecialchars($med['alt']) ?>" placeholder="e.g. The Times of India"></div>
+          <?php if ($med['src']): ?><img src="/da360-admin<?= htmlspecialchars($med['src']) ?>" class="img-preview md-img-preview" alt="media"><?php else: ?><img src="" class="img-preview md-img-preview" style="display:none;" alt="media"><?php endif; ?>
           <input type="file" class="md-img-file" accept="image/*" style="margin-top:4px;">
           <input type="hidden" class="md-img-path" value="<?= htmlspecialchars($med['src']) ?>">
         </div>
@@ -638,7 +613,6 @@ try {
 <?php
         $html = ob_get_clean();
 
-        // ── Inline JS ─────────────────────────────────────────────────────────
         $js = <<<'GWJS'
 (function () {
   var root = document.getElementById('gw-root');
@@ -688,6 +662,30 @@ try {
     });
   }
 
+  // ── Guest faculty logo upload helper ──────────────────────────────────────
+  function wireGfLogoFile(row) {
+    var fileInput = row.querySelector('.gf-logo-file');
+    if (!fileInput) return;
+    fileInput.addEventListener('change', function () {
+      var file = this.files[0]; if (!file) return;
+      var fd = new FormData();
+      fd.append('file', file); fd.append('folder', 'guestfaculty');
+      fetch('/da360-admin/globalwise_api.php?action=upload_image', { method:'POST', body:fd })
+        .then(function(r){ return r.json(); })
+        .then(function(d){
+          if (d.success && d.path) {
+            row.querySelector('.gf-logo-path').value = d.path;
+            var img = row.querySelector('.gf-logo-thumb');
+            img.src = '/da360-admin' + d.path; img.style.display = '';
+          }
+        });
+    });
+  }
+
+  function wireGfLogoFiles(block) {
+    block.querySelectorAll('.gf-logo-row').forEach(function(row){ wireGfLogoFile(row); });
+  }
+
   // ── API helper ────────────────────────────────────────────────────────────
   function apiPost(params, btn, onSuccess) {
     var fd = new FormData();
@@ -718,15 +716,10 @@ try {
     if (!btn) return;
     var action = btn.dataset.action;
 
-    // ── HERO COUNT ─────────────────────────────────────────────────────────
+    // ── HERO COUNT ────────────────────────────────────────────────────────
     if (action === 'save-herocount') {
       var slotEl = btn.closest('[data-hc-slot]');
-      apiPost({
-        _action:     'save_herocount',
-        slot:        slotEl.dataset.hcSlot,
-        count_value: slotEl.querySelector('.hc-count-value').value,
-        count_label: slotEl.querySelector('.hc-count-label').value,
-      }, btn, function (d) { slotEl.dataset.hcId = d.id || slotEl.dataset.hcId; });
+      apiPost({ _action:'save_herocount', slot:slotEl.dataset.hcSlot, count_value:slotEl.querySelector('.hc-count-value').value, count_label:slotEl.querySelector('.hc-count-label').value }, btn, function (d) { slotEl.dataset.hcId = d.id || slotEl.dataset.hcId; });
     }
 
     // ── VIDEO URL ─────────────────────────────────────────────────────────
@@ -737,40 +730,24 @@ try {
     // ── SUCCESS STORY SAVE ────────────────────────────────────────────────
     if (action === 'save-story') {
       var block = btn.closest('.item-block');
-      apiPost({
-        _action:       'save_story',
-        story_id:      block.dataset.itemId || 0,
-        sort_order:    block.dataset.sort || 1,
-        name:          block.querySelector('.st-name').value,
-        company_name:  block.querySelector('.st-company-name').value,
-        package_lpa:   block.querySelector('.st-package-lpa').value,
-        previous_role: block.querySelector('.st-previous-role').value,
-        new_role:      block.querySelector('.st-new-role').value,
-        profile_image: block.querySelector('.st-profile-path').value,
-        company_logo:  block.querySelector('.st-logo-path').value,
-      }, btn, function (d) {
+      apiPost({ _action:'save_story', story_id:block.dataset.itemId||0, sort_order:block.dataset.sort||1, name:block.querySelector('.st-name').value, company_name:block.querySelector('.st-company-name').value, package_lpa:block.querySelector('.st-package-lpa').value, previous_role:block.querySelector('.st-previous-role').value, new_role:block.querySelector('.st-new-role').value, profile_image:block.querySelector('.st-profile-path').value, company_logo:block.querySelector('.st-logo-path').value }, btn, function (d) {
         if (d.story_id) block.dataset.itemId = d.story_id;
         var num = block.querySelector('.item-title-text');
         if (num) num.textContent = block.querySelector('.st-name').value + ' — ' + block.querySelector('.st-company-name').value;
       });
     }
 
-    // ── SUCCESS STORY DELETE ──────────────────────────────────────────────
     if (action === 'delete-story') {
       var block = btn.closest('.item-block');
       if (!confirm('Delete this success story?')) return;
       apiPost({ _action:'delete_story', story_id: block.dataset.itemId }, btn, function () { block.remove(); });
     }
 
-    // ── ADD STORY ─────────────────────────────────────────────────────────
     if (action === 'add-story') {
       var container = root.querySelector('#stories-container');
       var idx = container.querySelectorAll('.item-block').length;
       var div = document.createElement('div');
-      div.className = 'item-block';
-      div.dataset.itemId = '0';
-      div.dataset.itemIndex = idx;
-      div.dataset.sort = idx + 1;
+      div.className = 'item-block'; div.dataset.itemId = '0'; div.dataset.itemIndex = idx; div.dataset.sort = idx+1;
       div.innerHTML = '<div class="item-header" data-toggle-item="story-new-'+idx+'"><div style="display:flex;align-items:center;flex:1;"><div class="item-num">'+(idx+1)+'</div><span class="item-title-text">New Story</span></div><div style="display:flex;gap:8px;"><button class="btn btn-success btn-sm" data-action="save-story">💾 Save</button><button class="btn btn-danger btn-sm" data-action="delete-story">🗑</button></div></div>'
         +'<div class="item-body open" id="item-body-story-new-'+idx+'">'
         +'<div class="field-3col"><div class="field-row"><label>Name</label><input type="text" class="st-name" placeholder="Student name"></div><div class="field-row"><label>Company Name</label><input type="text" class="st-company-name" placeholder="e.g. Jeet"></div><div class="field-row"><label>Package LPA</label><input type="text" class="st-package-lpa" placeholder="e.g. 5 LPA"></div></div>'
@@ -786,55 +763,107 @@ try {
     // ── LIFE VIDEO ────────────────────────────────────────────────────────
     if (action === 'save-lifevideo') {
       var slotEl = btn.closest('[data-lv-slot]');
+      apiPost({ _action:'save_lifevideo', slot:slotEl.dataset.lvSlot, title:slotEl.querySelector('.lv-title').value, img:slotEl.querySelector('.lv-img-path').value, video_url:slotEl.querySelector('.lv-video-url').value }, btn, function (d) { slotEl.dataset.lvId = d.id || slotEl.dataset.lvId; });
+    }
+
+    // ── GUEST FACULTY ─────────────────────────────────────────────────────
+    if (action === 'save-guestfaculty') {
+      var block = btn.closest('.item-block');
+      var logos = [];
+      block.querySelectorAll('.gf-logo-path').forEach(function (inp, i) {
+        var v = inp.value; if (v) logos.push({ sort_order: i+1, logo: v });
+      });
       apiPost({
-        _action:   'save_lifevideo',
-        slot:      slotEl.dataset.lvSlot,
-        title:     slotEl.querySelector('.lv-title').value,
-        img:       slotEl.querySelector('.lv-img-path').value,
-        video_url: slotEl.querySelector('.lv-video-url').value,
-      }, btn, function (d) { slotEl.dataset.lvId = d.id || slotEl.dataset.lvId; });
+        _action:            'save_guest_faculty',
+        faculty_id:          block.dataset.itemId || 0,
+        sort_order:          block.dataset.sort || 1,
+        name:                block.querySelector('.gf-name').value,
+        name_popup:          block.querySelector('.gf-name-popup').value,
+        title:               block.querySelector('.gf-title').value,
+        expertise:           block.querySelector('.gf-expertise').value,
+        description:         block.querySelector('.gf-description').value,
+        profile_image:       block.querySelector('.gf-profile-path').value,
+        profile_image_popup: block.querySelector('.gf-popup-path').value,
+        logos:               JSON.stringify(logos),
+      }, btn, function (d) {
+        if (d.faculty_id) block.dataset.itemId = d.faculty_id;
+        var t = block.querySelector('.item-title-text');
+        if (t) t.textContent = block.querySelector('.gf-name').value;
+      });
+    }
+
+    if (action === 'delete-guestfaculty') {
+      var block = btn.closest('.item-block');
+      if (!confirm('Delete this guest faculty member?')) return;
+      apiPost({ _action:'delete_guest_faculty', faculty_id: block.dataset.itemId }, btn, function () { block.remove(); });
+    }
+
+    if (action === 'add-guestfaculty') {
+      var container = root.querySelector('#guestfaculty-container');
+      var idx = container.querySelectorAll('.item-block').length;
+      var div = document.createElement('div');
+      div.className = 'item-block'; div.dataset.itemId = '0'; div.dataset.itemIndex = idx; div.dataset.sort = idx+1;
+      div.innerHTML =
+        '<div class="item-header" data-toggle-item="gf-new-'+idx+'">'
+          +'<div style="display:flex;align-items:center;flex:1;gap:10px;"><div class="item-num">'+(idx+1)+'</div><span class="item-title-text">New Guest Faculty</span></div>'
+          +'<div style="display:flex;gap:8px;"><button class="btn btn-success btn-sm" data-action="save-guestfaculty">💾 Save</button><button class="btn btn-danger btn-sm" data-action="delete-guestfaculty">🗑</button></div>'
+        +'</div>'
+        +'<div class="item-body open" id="item-body-gf-new-'+idx+'">'
+          +'<div class="field-2col">'
+            +'<div><label>Profile Image (Card)</label><img src="" class="img-preview gf-profile-preview" style="display:none;" alt="profile"><input type="file" class="gf-profile-file" accept="image/*" style="margin-top:4px;"><input type="hidden" class="gf-profile-path" value=""></div>'
+            +'<div><label>Profile Image (Popup)</label><img src="" class="img-preview gf-popup-preview" style="display:none;" alt="popup"><input type="file" class="gf-popup-file" accept="image/*" style="margin-top:4px;"><input type="hidden" class="gf-popup-path" value=""></div>'
+          +'</div>'
+          +'<div class="field-2col"><div class="field-row"><label>Name</label><input type="text" class="gf-name" placeholder="e.g. Rajesh Choudhury"></div><div class="field-row"><label>Name Popup</label><input type="text" class="gf-name-popup" placeholder="e.g. Rajesh &lt;br/&gt; Choudhury"></div></div>'
+          +'<div class="field-row"><label>Title / Role</label><input type="text" class="gf-title" placeholder="e.g. DGM Digital Marketing at Purvankara"></div>'
+          +'<div class="field-row"><label>Expertise</label><textarea class="gf-expertise" rows="2"></textarea></div>'
+          +'<div class="field-row"><label>Description</label><textarea class="gf-description" rows="3"></textarea></div>'
+          +'<div class="field-row"><label>Company Logos</label><div class="gf-logos-list" id="gf-logos-'+idx+'"></div><button class="btn btn-plus btn-sm" data-action="add-gf-logo" data-gf-index="'+idx+'" style="margin-top:4px;">＋ Add Logo</button></div>'
+        +'</div>';
+      container.appendChild(div);
+      wireFileInput(div, '.gf-profile-file', '.gf-profile-preview', '.gf-profile-path');
+      wireFileInput(div, '.gf-popup-file',   '.gf-popup-preview',   '.gf-popup-path');
+      wireGfLogoFiles(div);
+    }
+
+    if (action === 'add-gf-logo') {
+      var gfi  = btn.dataset.gfIndex;
+      var list = root.querySelector('#gf-logos-' + gfi);
+      var sort = list ? list.querySelectorAll('.gf-logo-row').length + 1 : 1;
+      var row  = document.createElement('div');
+      row.className = 'gf-logo-row'; row.dataset.logoId = '0'; row.dataset.sort = sort;
+      row.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:6px;';
+      row.innerHTML = '<img src="" class="gf-logo-thumb" style="width:40px;height:40px;object-fit:contain;border:1px solid #e2e8f0;border-radius:4px;display:none;" alt="logo"><input type="hidden" class="gf-logo-path" value=""><input type="file" class="gf-logo-file" accept="image/*"><button class="btn btn-danger btn-sm" data-action="delete-gf-logo">✕</button>';
+      if (list) list.appendChild(row);
+      wireGfLogoFile(row);
+    }
+
+    if (action === 'delete-gf-logo') {
+      btn.closest('.gf-logo-row').remove();
     }
 
     // ── FACULTY SAVE ──────────────────────────────────────────────────────
     if (action === 'save-faculty') {
       var block = btn.closest('.item-block');
-      apiPost({
-        _action:        'save_faculty',
-        faculty_id:     block.dataset.itemId || 0,
-        sort_order:     block.dataset.sort || 1,
-        name:           block.querySelector('.fac-name').value,
-        role:           block.querySelector('.fac-role').value,
-        experience:     block.querySelector('.fac-experience').value,
-        linkedin_link:  block.querySelector('.fac-linkedin').value,
-        tab:            block.querySelector('.fac-tab').value,
-        text_color:     block.querySelector('.fac-text-color').value,
-        icon:           block.querySelector('.fac-icon').value,
-        icon_position:  block.querySelector('.fac-icon-position').value,
-        img:            block.querySelector('.fac-img-path').value,
-        icon_img:       block.querySelector('.fac-iconimg-path').value,
-      }, btn, function (d) {
+      apiPost({ _action:'save_faculty', faculty_id:block.dataset.itemId||0, sort_order:block.dataset.sort||1, name:block.querySelector('.fac-name').value, role:block.querySelector('.fac-role').value, experience:block.querySelector('.fac-experience').value, linkedin_link:block.querySelector('.fac-linkedin').value, tab:block.querySelector('.fac-tab').value, text_color:block.querySelector('.fac-text-color').value, icon:block.querySelector('.fac-icon').value, icon_position:block.querySelector('.fac-icon-position').value, img:block.querySelector('.fac-img-path').value, icon_img:block.querySelector('.fac-iconimg-path').value }, btn, function (d) {
         if (d.faculty_id) block.dataset.itemId = d.faculty_id;
         var t = block.querySelector('.item-title-text');
         if (t) t.textContent = block.querySelector('.fac-name').value + ' — ' + block.querySelector('.fac-tab').value;
       });
     }
 
-    // ── FACULTY DELETE ────────────────────────────────────────────────────
     if (action === 'delete-faculty') {
       var block = btn.closest('.item-block');
       if (!confirm('Delete this faculty member?')) return;
       apiPost({ _action:'delete_faculty', faculty_id: block.dataset.itemId }, btn, function () { block.remove(); });
     }
 
-    // ── ADD FACULTY ───────────────────────────────────────────────────────
     if (action === 'add-faculty') {
       var container = root.querySelector('#faculty-container');
       var idx = container.querySelectorAll('.item-block').length;
       var tabOpts = ['DA360 Faculty','Project Advisors','Placement / Support'].map(function(t){return '<option value="'+t+'">'+t+'</option>';}).join('');
       var iconOpts = ['star','sparkle','bolt'].map(function(i){return '<option value="'+i+'">'+i.charAt(0).toUpperCase()+i.slice(1)+'</option>';}).join('');
       var div = document.createElement('div');
-      div.className = 'item-block';
-      div.dataset.itemId = '0'; div.dataset.itemIndex = idx; div.dataset.sort = idx+1;
+      div.className = 'item-block'; div.dataset.itemId = '0'; div.dataset.itemIndex = idx; div.dataset.sort = idx+1;
       div.innerHTML = '<div class="item-header" data-toggle-item="fac-new-'+idx+'"><div style="display:flex;align-items:center;flex:1;"><div class="item-num">'+(idx+1)+'</div><span class="item-title-text">New Faculty</span></div><div style="display:flex;gap:8px;"><button class="btn btn-success btn-sm" data-action="save-faculty">💾 Save</button><button class="btn btn-danger btn-sm" data-action="delete-faculty">🗑</button></div></div>'
         +'<div class="item-body open" id="item-body-fac-new-'+idx+'">'
         +'<div class="field-3col"><div class="field-row"><label>Name</label><input type="text" class="fac-name" placeholder="Name"></div><div class="field-row"><label>Role</label><input type="text" class="fac-role" placeholder="Role"></div><div class="field-row"><label>Experience</label><input type="text" class="fac-experience" placeholder="e.g. 5 years"></div></div>'
@@ -848,25 +877,16 @@ try {
       wireFileInput(div, '.fac-iconimg-file', '.fac-iconimg-preview', '.fac-iconimg-path');
     }
 
-    // ── BANNER SAVE ───────────────────────────────────────────────────────
+    // ── BANNER ────────────────────────────────────────────────────────────
     if (action === 'save-banner') {
       var block = btn.closest('.item-block');
-      apiPost({
-        _action:    'save_banner',
-        banner_id:  block.dataset.itemId || 0,
-        sort_order: block.dataset.sort || 1,
-        image_url:  block.querySelector('.bn-img-path').value,
-      }, btn, function (d) { if (d.banner_id) block.dataset.itemId = d.banner_id; });
+      apiPost({ _action:'save_banner', banner_id:block.dataset.itemId||0, sort_order:block.dataset.sort||1, image_url:block.querySelector('.bn-img-path').value }, btn, function (d) { if (d.banner_id) block.dataset.itemId = d.banner_id; });
     }
-
-    // ── BANNER DELETE ─────────────────────────────────────────────────────
     if (action === 'delete-banner') {
       var block = btn.closest('.item-block');
       if (!confirm('Delete this banner?')) return;
       apiPost({ _action:'delete_banner', banner_id: block.dataset.itemId }, btn, function () { block.remove(); });
     }
-
-    // ── ADD BANNER ────────────────────────────────────────────────────────
     if (action === 'add-banner') {
       var container = root.querySelector('#banners-container');
       var idx = container.querySelectorAll('.item-block').length;
@@ -878,32 +898,20 @@ try {
       wireFileInput(div, '.bn-img-file', '.bn-img-preview', '.bn-img-path');
     }
 
-    // ── BLOG SAVE ─────────────────────────────────────────────────────────
+    // ── BLOG ──────────────────────────────────────────────────────────────
     if (action === 'save-blog') {
       var block = btn.closest('.item-block');
-      apiPost({
-        _action:    'save_blog',
-        blog_id:    block.dataset.itemId || 0,
-        sort_order: block.dataset.sort || 1,
-        category:   block.querySelector('.bl-category').value,
-        title:      block.querySelector('.bl-title').value,
-        link:       block.querySelector('.bl-link').value,
-        img_src:    block.querySelector('.bl-img-path').value,
-      }, btn, function (d) {
+      apiPost({ _action:'save_blog', blog_id:block.dataset.itemId||0, sort_order:block.dataset.sort||1, category:block.querySelector('.bl-category').value, title:block.querySelector('.bl-title').value, link:block.querySelector('.bl-link').value, img_src:block.querySelector('.bl-img-path').value }, btn, function (d) {
         if (d.blog_id) block.dataset.itemId = d.blog_id;
         var t = block.querySelector('.item-title-text');
         if (t) t.textContent = block.querySelector('.bl-title').value || 'Blog';
       });
     }
-
-    // ── BLOG DELETE ───────────────────────────────────────────────────────
     if (action === 'delete-blog') {
       var block = btn.closest('.item-block');
       if (!confirm('Delete this blog post?')) return;
       apiPost({ _action:'delete_blog', blog_id: block.dataset.itemId }, btn, function () { block.remove(); });
     }
-
-    // ── ADD BLOG ──────────────────────────────────────────────────────────
     if (action === 'add-blog') {
       var container = root.querySelector('#blogs-container');
       var idx = container.querySelectorAll('.item-block').length;
@@ -919,30 +927,20 @@ try {
       wireFileInput(div, '.bl-img-file', '.bl-img-preview', '.bl-img-path');
     }
 
-    // ── MEDIA SAVE ────────────────────────────────────────────────────────
+    // ── MEDIA ─────────────────────────────────────────────────────────────
     if (action === 'save-media') {
       var block = btn.closest('.item-block');
-      apiPost({
-        _action:    'save_media',
-        media_id:   block.dataset.itemId || 0,
-        sort_order: block.dataset.sort || 1,
-        alt:        block.querySelector('.md-alt').value,
-        src:        block.querySelector('.md-img-path').value,
-      }, btn, function (d) {
+      apiPost({ _action:'save_media', media_id:block.dataset.itemId||0, sort_order:block.dataset.sort||1, alt:block.querySelector('.md-alt').value, src:block.querySelector('.md-img-path').value }, btn, function (d) {
         if (d.media_id) block.dataset.itemId = d.media_id;
         var t = block.querySelector('.item-title-text');
         if (t) t.textContent = block.querySelector('.md-alt').value || 'Media';
       });
     }
-
-    // ── MEDIA DELETE ──────────────────────────────────────────────────────
     if (action === 'delete-media') {
       var block = btn.closest('.item-block');
       if (!confirm('Delete this media logo?')) return;
       apiPost({ _action:'delete_media', media_id: block.dataset.itemId }, btn, function () { block.remove(); });
     }
-
-    // ── ADD MEDIA ─────────────────────────────────────────────────────────
     if (action === 'add-media') {
       var container = root.querySelector('#media-container');
       var idx = container.querySelectorAll('.item-block').length;
@@ -963,6 +961,11 @@ try {
   root.querySelectorAll('#stories-container .item-block').forEach(function (b) {
     wireFileInput(b, '.st-profile-file', '.st-profile-preview', '.st-profile-path');
     wireFileInput(b, '.st-logo-file', '.st-logo-preview', '.st-logo-path');
+  });
+  root.querySelectorAll('#guestfaculty-container .item-block').forEach(function (b) {
+    wireFileInput(b, '.gf-profile-file', '.gf-profile-preview', '.gf-profile-path');
+    wireFileInput(b, '.gf-popup-file',   '.gf-popup-preview',   '.gf-popup-path');
+    wireGfLogoFiles(b);
   });
   root.querySelectorAll('#faculty-container .item-block').forEach(function (b) {
     wireFileInput(b, '.fac-img-file', '.fac-img-preview', '.fac-img-path');
@@ -987,289 +990,232 @@ GWJS;
 
     // ══════════════════════════════════════════════════════════════════════════
     // UPLOAD IMAGE
-    // POST /globalwise_api.php?action=upload_image
     // ══════════════════════════════════════════════════════════════════════════
     if ($action === 'upload_image' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         $folder = preg_replace('/[^a-z0-9_\-]/', '', strtolower($_POST['folder'] ?? 'global'));
         if ($folder === '') $folder = 'global';
         $path = handleImageUpload('file', $folder);
-        if ($path) {
-            echo json_encode(['success' => true, 'path' => $path]);
-        } else {
-            echo json_encode(['success' => false, 'message' => 'Upload failed or invalid file type']);
-        }
+        echo $path
+            ? json_encode(['success' => true,  'path'    => $path])
+            : json_encode(['success' => false, 'message' => 'Upload failed or invalid file type']);
         exit;
     }
 
     // ══════════════════════════════════════════════════════════════════════════
     // SAVE HERO COUNT
-    // POST /globalwise_api.php?action=save_herocount
     // ══════════════════════════════════════════════════════════════════════════
     if ($action === 'save_herocount' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         $slot       = (int)($_POST['slot']        ?? 0);
         $countValue = trim($_POST['count_value']  ?? '');
         $countLabel = trim($_POST['count_label']  ?? '');
         $updatedBy  = $_SESSION['da360_user']['name'] ?? $_SESSION['da360_user']['username'] ?? 'unknown';
-
         if ($slot < 1 || $slot > 3) { echo json_encode(['success' => false, 'message' => 'Invalid slot']); exit; }
-
-        $stmt = $db->prepare("
-            INSERT INTO global_hero_counts (slot, count_value, count_label, updated_at, updated_by)
-            VALUES (?, ?, ?, NOW(), ?)
-            ON DUPLICATE KEY UPDATE
-                count_value = VALUES(count_value),
-                count_label = VALUES(count_label),
-                updated_at  = NOW(),
-                updated_by  = VALUES(updated_by)
-        ");
+        $stmt = $db->prepare("INSERT INTO global_hero_counts (slot, count_value, count_label, updated_at, updated_by) VALUES (?, ?, ?, NOW(), ?) ON DUPLICATE KEY UPDATE count_value=VALUES(count_value), count_label=VALUES(count_label), updated_at=NOW(), updated_by=VALUES(updated_by)");
         $stmt->execute([$slot, $countValue, $countLabel, $updatedBy]);
-        $id = (int)$db->lastInsertId() ?: null;
-        echo json_encode(['success' => true, 'id' => $id, 'message' => 'Hero count saved']);
+        echo json_encode(['success' => true, 'id' => (int)$db->lastInsertId() ?: null, 'message' => 'Hero count saved']);
         exit;
     }
 
     // ══════════════════════════════════════════════════════════════════════════
     // SAVE VIDEO URL
-    // POST /globalwise_api.php?action=save_video
     // ══════════════════════════════════════════════════════════════════════════
     if ($action === 'save_video' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         $videoUrl  = trim($_POST['video_url'] ?? '');
         $updatedBy = $_SESSION['da360_user']['name'] ?? $_SESSION['da360_user']['username'] ?? 'unknown';
-
-        $stmt = $db->prepare("
-            INSERT INTO global_video (id, video_url, updated_at, updated_by)
-            VALUES (1, ?, NOW(), ?)
-            ON DUPLICATE KEY UPDATE
-                video_url  = VALUES(video_url),
-                updated_at = NOW(),
-                updated_by = VALUES(updated_by)
-        ");
+        $stmt = $db->prepare("INSERT INTO global_video (id, video_url, updated_at, updated_by) VALUES (1, ?, NOW(), ?) ON DUPLICATE KEY UPDATE video_url=VALUES(video_url), updated_at=NOW(), updated_by=VALUES(updated_by)");
         $stmt->execute([$videoUrl, $updatedBy]);
         echo json_encode(['success' => true, 'message' => 'Video URL saved']);
         exit;
     }
 
     // ══════════════════════════════════════════════════════════════════════════
-    // SAVE SUCCESS STORY
-    // POST /globalwise_api.php?action=save_story
+    // SAVE / DELETE SUCCESS STORY
     // ══════════════════════════════════════════════════════════════════════════
     if ($action === 'save_story' && $_SERVER['REQUEST_METHOD'] === 'POST') {
-        $storyId      = (int)($_POST['story_id']      ?? 0);
-        $sortOrder    = (int)($_POST['sort_order']     ?? 1);
-        $name         = trim($_POST['name']            ?? '');
-        $companyName  = trim($_POST['company_name']    ?? '');
-        $previousRole = trim($_POST['previous_role']   ?? '');
-        $packageLpa   = trim($_POST['package_lpa']     ?? '');
-        $newRole      = trim($_POST['new_role']        ?? '');
-        $profileImage = trim($_POST['profile_image']   ?? '');
-        $companyLogo  = trim($_POST['company_logo']    ?? '');
-        $updatedBy    = $_SESSION['da360_user']['name'] ?? $_SESSION['da360_user']['username'] ?? 'unknown';
-
+        $storyId=$id=(int)($_POST['story_id']??0); $sortOrder=(int)($_POST['sort_order']??1);
+        $name=trim($_POST['name']??''); $companyName=trim($_POST['company_name']??'');
+        $previousRole=trim($_POST['previous_role']??''); $packageLpa=trim($_POST['package_lpa']??'');
+        $newRole=trim($_POST['new_role']??''); $profileImage=trim($_POST['profile_image']??'');
+        $companyLogo=trim($_POST['company_logo']??'');
+        $updatedBy=$_SESSION['da360_user']['name']??$_SESSION['da360_user']['username']??'unknown';
         if ($storyId) {
-            $stmt = $db->prepare("UPDATE global_success_stories SET name=?, company_name=?, previous_role=?, package_lpa=?, new_role=?, profile_image=?, company_logo=?, sort_order=?, updated_at=NOW(), updated_by=? WHERE id=?");
-            $stmt->execute([$name, $companyName, $previousRole, $packageLpa, $newRole, $profileImage, $companyLogo, $sortOrder, $updatedBy, $storyId]);
+            $stmt=$db->prepare("UPDATE global_success_stories SET name=?,company_name=?,previous_role=?,package_lpa=?,new_role=?,profile_image=?,company_logo=?,sort_order=?,updated_at=NOW(),updated_by=? WHERE id=?");
+            $stmt->execute([$name,$companyName,$previousRole,$packageLpa,$newRole,$profileImage,$companyLogo,$sortOrder,$updatedBy,$storyId]);
         } else {
-            $stmt = $db->prepare("INSERT INTO global_success_stories (name, company_name, previous_role, package_lpa, new_role, profile_image, company_logo, sort_order, updated_at, updated_by) VALUES (?,?,?,?,?,?,?,?,NOW(),?)");
-            $stmt->execute([$name, $companyName, $previousRole, $packageLpa, $newRole, $profileImage, $companyLogo, $sortOrder, $updatedBy]);
-            $storyId = (int)$db->lastInsertId();
+            $stmt=$db->prepare("INSERT INTO global_success_stories (name,company_name,previous_role,package_lpa,new_role,profile_image,company_logo,sort_order,updated_at,updated_by) VALUES (?,?,?,?,?,?,?,?,NOW(),?)");
+            $stmt->execute([$name,$companyName,$previousRole,$packageLpa,$newRole,$profileImage,$companyLogo,$sortOrder,$updatedBy]);
+            $storyId=(int)$db->lastInsertId();
         }
-        echo json_encode(['success' => true, 'story_id' => $storyId, 'message' => 'Story saved']);
-        exit;
+        echo json_encode(['success'=>true,'story_id'=>$storyId,'message'=>'Story saved']); exit;
     }
-
-    // ══════════════════════════════════════════════════════════════════════════
-    // DELETE SUCCESS STORY
-    // POST /globalwise_api.php?action=delete_story
-    // ══════════════════════════════════════════════════════════════════════════
     if ($action === 'delete_story' && $_SERVER['REQUEST_METHOD'] === 'POST') {
-        $storyId = (int)($_POST['story_id'] ?? 0);
-        if (!$storyId) { echo json_encode(['success' => false, 'message' => 'Invalid story_id']); exit; }
-        $stmt = $db->prepare("DELETE FROM global_success_stories WHERE id=? LIMIT 1");
-        $stmt->execute([$storyId]);
-        echo json_encode(['success' => $stmt->rowCount() > 0, 'message' => 'Story deleted']);
-        exit;
+        $storyId=(int)($_POST['story_id']??0);
+        if (!$storyId){echo json_encode(['success'=>false,'message'=>'Invalid story_id']);exit;}
+        $stmt=$db->prepare("DELETE FROM global_success_stories WHERE id=? LIMIT 1"); $stmt->execute([$storyId]);
+        echo json_encode(['success'=>$stmt->rowCount()>0,'message'=>'Story deleted']); exit;
     }
 
     // ══════════════════════════════════════════════════════════════════════════
     // SAVE LIFE VIDEO
-    // POST /globalwise_api.php?action=save_lifevideo
     // ══════════════════════════════════════════════════════════════════════════
     if ($action === 'save_lifevideo' && $_SERVER['REQUEST_METHOD'] === 'POST') {
-        $slot      = (int)($_POST['slot']      ?? 0);
-        $title     = trim($_POST['title']      ?? '');
-        $img       = trim($_POST['img']        ?? '');
-        $videoUrl  = trim($_POST['video_url']  ?? '');
-        $updatedBy = $_SESSION['da360_user']['name'] ?? $_SESSION['da360_user']['username'] ?? 'unknown';
-
-        if ($slot < 1 || $slot > 4) { echo json_encode(['success' => false, 'message' => 'Invalid slot']); exit; }
-
-        $stmt = $db->prepare("
-            INSERT INTO global_life_videos (slot, title, img, video_url, updated_at, updated_by)
-            VALUES (?, ?, ?, ?, NOW(), ?)
-            ON DUPLICATE KEY UPDATE
-                title      = VALUES(title),
-                img        = VALUES(img),
-                video_url  = VALUES(video_url),
-                updated_at = NOW(),
-                updated_by = VALUES(updated_by)
-        ");
-        $stmt->execute([$slot, $title, $img, $videoUrl, $updatedBy]);
-        $id = (int)$db->lastInsertId() ?: null;
-        echo json_encode(['success' => true, 'id' => $id, 'message' => 'Life video saved']);
-        exit;
+        $slot=(int)($_POST['slot']??0); $title=trim($_POST['title']??'');
+        $img=trim($_POST['img']??''); $videoUrl=trim($_POST['video_url']??'');
+        $updatedBy=$_SESSION['da360_user']['name']??$_SESSION['da360_user']['username']??'unknown';
+        if ($slot<1||$slot>4){echo json_encode(['success'=>false,'message'=>'Invalid slot']);exit;}
+        $stmt=$db->prepare("INSERT INTO global_life_videos (slot,title,img,video_url,updated_at,updated_by) VALUES (?,?,?,?,NOW(),?) ON DUPLICATE KEY UPDATE title=VALUES(title),img=VALUES(img),video_url=VALUES(video_url),updated_at=NOW(),updated_by=VALUES(updated_by)");
+        $stmt->execute([$slot,$title,$img,$videoUrl,$updatedBy]);
+        echo json_encode(['success'=>true,'id'=>(int)$db->lastInsertId()?:null,'message'=>'Life video saved']); exit;
     }
 
     // ══════════════════════════════════════════════════════════════════════════
-    // SAVE FACULTY
-    // POST /globalwise_api.php?action=save_faculty
+    // SAVE GUEST FACULTY
     // ══════════════════════════════════════════════════════════════════════════
-    if ($action === 'save_faculty' && $_SERVER['REQUEST_METHOD'] === 'POST') {
-        $facultyId   = (int)($_POST['faculty_id']   ?? 0);
-        $sortOrder   = (int)($_POST['sort_order']   ?? 1);
-        $name        = trim($_POST['name']          ?? '');
-        $role        = trim($_POST['role']          ?? '');
-        $experience  = trim($_POST['experience']    ?? '');
-        $img         = trim($_POST['img']           ?? '');
-        $linkedinLink= trim($_POST['linkedin_link'] ?? '');
-        $tab         = trim($_POST['tab']           ?? '');
-        $textColor   = trim($_POST['text_color']    ?? '');
-        $icon        = trim($_POST['icon']          ?? 'star');
-        $iconImg     = trim($_POST['icon_img']      ?? '');
-        $iconPosition= trim($_POST['icon_position'] ?? '');
-        $updatedBy   = $_SESSION['da360_user']['name'] ?? $_SESSION['da360_user']['username'] ?? 'unknown';
+    if ($action === 'save_guest_faculty' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+        $facultyId         = (int)($_POST['faculty_id']           ?? 0);
+        $name              = trim($_POST['name']                   ?? '');
+        $namePopup         = trim($_POST['name_popup']             ?? '');
+        $title             = trim($_POST['title']                  ?? '');
+        $expertise         = trim($_POST['expertise']              ?? '');
+        $description       = trim($_POST['description']           ?? '');
+        $profileImage      = trim($_POST['profile_image']          ?? '');
+        $profileImagePopup = trim($_POST['profile_image_popup']    ?? '');
+        $sortOrder         = (int)($_POST['sort_order']            ?? 1);
+        $logosJson         = $_POST['logos']                       ?? '[]';
+        $updatedBy         = $_SESSION['da360_user']['name'] ?? $_SESSION['da360_user']['username'] ?? 'unknown';
+        $logos             = json_decode($logosJson, true) ?: [];
+
+        if (!$name) { echo json_encode(['success' => false, 'message' => 'Name is required']); exit; }
 
         if ($facultyId) {
-            $stmt = $db->prepare("UPDATE global_faculty SET name=?, role=?, experience=?, img=?, linkedin_link=?, tab=?, text_color=?, icon=?, icon_img=?, icon_position=?, sort_order=?, updated_at=NOW(), updated_by=? WHERE id=?");
-            $stmt->execute([$name, $role, $experience, $img, $linkedinLink, $tab, $textColor, $icon, $iconImg, $iconPosition, $sortOrder, $updatedBy, $facultyId]);
+            $stmt = $db->prepare("UPDATE guest_faculty SET name=?,name_popup=?,title=?,expertise=?,description=?,profile_image=?,profile_image_popup=?,sort_order=?,updated_at=NOW(),updated_by=? WHERE id=?");
+            $stmt->execute([$name,$namePopup,$title,$expertise,$description,$profileImage,$profileImagePopup,$sortOrder,$updatedBy,$facultyId]);
         } else {
-            $stmt = $db->prepare("INSERT INTO global_faculty (name, role, experience, img, linkedin_link, tab, text_color, icon, icon_img, icon_position, sort_order, updated_at, updated_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,NOW(),?)");
-            $stmt->execute([$name, $role, $experience, $img, $linkedinLink, $tab, $textColor, $icon, $iconImg, $iconPosition, $sortOrder, $updatedBy]);
+            $stmt = $db->prepare("INSERT INTO guest_faculty (name,name_popup,title,expertise,description,profile_image,profile_image_popup,sort_order,updated_at,updated_by) VALUES (?,?,?,?,?,?,?,?,NOW(),?)");
+            $stmt->execute([$name,$namePopup,$title,$expertise,$description,$profileImage,$profileImagePopup,$sortOrder,$updatedBy]);
             $facultyId = (int)$db->lastInsertId();
         }
-        echo json_encode(['success' => true, 'faculty_id' => $facultyId, 'message' => 'Faculty saved']);
+
+        $db->prepare("DELETE FROM guest_faculty_logos WHERE faculty_id=?")->execute([$facultyId]);
+        $insLogo = $db->prepare("INSERT INTO guest_faculty_logos (faculty_id,logo,sort_order,updated_at,updated_by) VALUES (?,?,?,NOW(),?)");
+        foreach ($logos as $i => $l) {
+            $logo = trim($l['logo'] ?? '');
+            if ($logo === '') continue;
+            $insLogo->execute([$facultyId, $logo, (int)($l['sort_order'] ?? $i+1), $updatedBy]);
+        }
+
+        echo json_encode(['success' => true, 'faculty_id' => $facultyId, 'message' => 'Guest Faculty saved']);
         exit;
     }
 
     // ══════════════════════════════════════════════════════════════════════════
-    // DELETE FACULTY
-    // POST /globalwise_api.php?action=delete_faculty
+    // DELETE GUEST FACULTY
     // ══════════════════════════════════════════════════════════════════════════
-    if ($action === 'delete_faculty' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    if ($action === 'delete_guest_faculty' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         $facultyId = (int)($_POST['faculty_id'] ?? 0);
         if (!$facultyId) { echo json_encode(['success' => false, 'message' => 'Invalid faculty_id']); exit; }
-        $stmt = $db->prepare("DELETE FROM global_faculty WHERE id=? LIMIT 1");
+        $db->prepare("DELETE FROM guest_faculty_logos WHERE faculty_id=?")->execute([$facultyId]);
+        $stmt = $db->prepare("DELETE FROM guest_faculty WHERE id=? LIMIT 1");
         $stmt->execute([$facultyId]);
-        echo json_encode(['success' => $stmt->rowCount() > 0, 'message' => 'Faculty deleted']);
+        echo json_encode(['success' => $stmt->rowCount() > 0, 'message' => 'Guest Faculty deleted']);
         exit;
     }
 
     // ══════════════════════════════════════════════════════════════════════════
-    // SAVE BANNER
-    // POST /globalwise_api.php?action=save_banner
+    // SAVE / DELETE FACULTY
+    // ══════════════════════════════════════════════════════════════════════════
+    if ($action === 'save_faculty' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+        $facultyId=(int)($_POST['faculty_id']??0); $sortOrder=(int)($_POST['sort_order']??1);
+        $name=trim($_POST['name']??''); $role=trim($_POST['role']??''); $experience=trim($_POST['experience']??'');
+        $img=trim($_POST['img']??''); $linkedinLink=trim($_POST['linkedin_link']??'');
+        $tab=trim($_POST['tab']??''); $textColor=trim($_POST['text_color']??'');
+        $icon=trim($_POST['icon']??'star'); $iconImg=trim($_POST['icon_img']??''); $iconPosition=trim($_POST['icon_position']??'');
+        $updatedBy=$_SESSION['da360_user']['name']??$_SESSION['da360_user']['username']??'unknown';
+        if ($facultyId) {
+            $stmt=$db->prepare("UPDATE global_faculty SET name=?,role=?,experience=?,img=?,linkedin_link=?,tab=?,text_color=?,icon=?,icon_img=?,icon_position=?,sort_order=?,updated_at=NOW(),updated_by=? WHERE id=?");
+            $stmt->execute([$name,$role,$experience,$img,$linkedinLink,$tab,$textColor,$icon,$iconImg,$iconPosition,$sortOrder,$updatedBy,$facultyId]);
+        } else {
+            $stmt=$db->prepare("INSERT INTO global_faculty (name,role,experience,img,linkedin_link,tab,text_color,icon,icon_img,icon_position,sort_order,updated_at,updated_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,NOW(),?)");
+            $stmt->execute([$name,$role,$experience,$img,$linkedinLink,$tab,$textColor,$icon,$iconImg,$iconPosition,$sortOrder,$updatedBy]);
+            $facultyId=(int)$db->lastInsertId();
+        }
+        echo json_encode(['success'=>true,'faculty_id'=>$facultyId,'message'=>'Faculty saved']); exit;
+    }
+    if ($action === 'delete_faculty' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+        $facultyId=(int)($_POST['faculty_id']??0);
+        if (!$facultyId){echo json_encode(['success'=>false,'message'=>'Invalid faculty_id']);exit;}
+        $stmt=$db->prepare("DELETE FROM global_faculty WHERE id=? LIMIT 1"); $stmt->execute([$facultyId]);
+        echo json_encode(['success'=>$stmt->rowCount()>0,'message'=>'Faculty deleted']); exit;
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // SAVE / DELETE BANNER
     // ══════════════════════════════════════════════════════════════════════════
     if ($action === 'save_banner' && $_SERVER['REQUEST_METHOD'] === 'POST') {
-        $bannerId  = (int)($_POST['banner_id']  ?? 0);
-        $sortOrder = (int)($_POST['sort_order'] ?? 1);
-        $imageUrl  = trim($_POST['image_url']   ?? '');
-        $updatedBy = $_SESSION['da360_user']['name'] ?? $_SESSION['da360_user']['username'] ?? 'unknown';
-
+        $bannerId=(int)($_POST['banner_id']??0); $sortOrder=(int)($_POST['sort_order']??1);
+        $imageUrl=trim($_POST['image_url']??'');
+        $updatedBy=$_SESSION['da360_user']['name']??$_SESSION['da360_user']['username']??'unknown';
         if ($bannerId) {
-            $stmt = $db->prepare("UPDATE global_banners SET image_url=?, sort_order=?, updated_at=NOW(), updated_by=? WHERE id=?");
-            $stmt->execute([$imageUrl, $sortOrder, $updatedBy, $bannerId]);
+            $stmt=$db->prepare("UPDATE global_banners SET image_url=?,sort_order=?,updated_at=NOW(),updated_by=? WHERE id=?");
+            $stmt->execute([$imageUrl,$sortOrder,$updatedBy,$bannerId]);
         } else {
-            $stmt = $db->prepare("INSERT INTO global_banners (image_url, sort_order, updated_at, updated_by) VALUES (?,?,NOW(),?)");
-            $stmt->execute([$imageUrl, $sortOrder, $updatedBy]);
-            $bannerId = (int)$db->lastInsertId();
+            $stmt=$db->prepare("INSERT INTO global_banners (image_url,sort_order,updated_at,updated_by) VALUES (?,?,NOW(),?)");
+            $stmt->execute([$imageUrl,$sortOrder,$updatedBy]); $bannerId=(int)$db->lastInsertId();
         }
-        echo json_encode(['success' => true, 'banner_id' => $bannerId, 'message' => 'Banner saved']);
-        exit;
+        echo json_encode(['success'=>true,'banner_id'=>$bannerId,'message'=>'Banner saved']); exit;
     }
-
-    // ══════════════════════════════════════════════════════════════════════════
-    // DELETE BANNER
-    // POST /globalwise_api.php?action=delete_banner
-    // ══════════════════════════════════════════════════════════════════════════
     if ($action === 'delete_banner' && $_SERVER['REQUEST_METHOD'] === 'POST') {
-        $bannerId = (int)($_POST['banner_id'] ?? 0);
-        if (!$bannerId) { echo json_encode(['success' => false, 'message' => 'Invalid banner_id']); exit; }
-        $stmt = $db->prepare("DELETE FROM global_banners WHERE id=? LIMIT 1");
-        $stmt->execute([$bannerId]);
-        echo json_encode(['success' => $stmt->rowCount() > 0, 'message' => 'Banner deleted']);
-        exit;
+        $bannerId=(int)($_POST['banner_id']??0);
+        if (!$bannerId){echo json_encode(['success'=>false,'message'=>'Invalid banner_id']);exit;}
+        $stmt=$db->prepare("DELETE FROM global_banners WHERE id=? LIMIT 1"); $stmt->execute([$bannerId]);
+        echo json_encode(['success'=>$stmt->rowCount()>0,'message'=>'Banner deleted']); exit;
     }
 
     // ══════════════════════════════════════════════════════════════════════════
-    // SAVE BLOG POST
-    // POST /globalwise_api.php?action=save_blog
+    // SAVE / DELETE BLOG POST
     // ══════════════════════════════════════════════════════════════════════════
     if ($action === 'save_blog' && $_SERVER['REQUEST_METHOD'] === 'POST') {
-        $blogId    = (int)($_POST['blog_id']    ?? 0);
-        $sortOrder = (int)($_POST['sort_order'] ?? 1);
-        $imgSrc    = trim($_POST['img_src']     ?? '');
-        $category  = trim($_POST['category']    ?? '');
-        $title     = trim($_POST['title']       ?? '');
-        $link      = trim($_POST['link']        ?? '');
-        $updatedBy = $_SESSION['da360_user']['name'] ?? $_SESSION['da360_user']['username'] ?? 'unknown';
-
+        $blogId=(int)($_POST['blog_id']??0); $sortOrder=(int)($_POST['sort_order']??1);
+        $imgSrc=trim($_POST['img_src']??''); $category=trim($_POST['category']??'');
+        $title=trim($_POST['title']??''); $link=trim($_POST['link']??'');
+        $updatedBy=$_SESSION['da360_user']['name']??$_SESSION['da360_user']['username']??'unknown';
         if ($blogId) {
-            $stmt = $db->prepare("UPDATE global_blog_posts SET img_src=?, category=?, title=?, link=?, sort_order=?, updated_at=NOW(), updated_by=? WHERE id=?");
-            $stmt->execute([$imgSrc, $category, $title, $link, $sortOrder, $updatedBy, $blogId]);
+            $stmt=$db->prepare("UPDATE global_blog_posts SET img_src=?,category=?,title=?,link=?,sort_order=?,updated_at=NOW(),updated_by=? WHERE id=?");
+            $stmt->execute([$imgSrc,$category,$title,$link,$sortOrder,$updatedBy,$blogId]);
         } else {
-            $stmt = $db->prepare("INSERT INTO global_blog_posts (img_src, category, title, link, sort_order, updated_at, updated_by) VALUES (?,?,?,?,?,NOW(),?)");
-            $stmt->execute([$imgSrc, $category, $title, $link, $sortOrder, $updatedBy]);
-            $blogId = (int)$db->lastInsertId();
+            $stmt=$db->prepare("INSERT INTO global_blog_posts (img_src,category,title,link,sort_order,updated_at,updated_by) VALUES (?,?,?,?,?,NOW(),?)");
+            $stmt->execute([$imgSrc,$category,$title,$link,$sortOrder,$updatedBy]); $blogId=(int)$db->lastInsertId();
         }
-        echo json_encode(['success' => true, 'blog_id' => $blogId, 'message' => 'Blog post saved']);
-        exit;
+        echo json_encode(['success'=>true,'blog_id'=>$blogId,'message'=>'Blog post saved']); exit;
     }
-
-    // ══════════════════════════════════════════════════════════════════════════
-    // DELETE BLOG POST
-    // POST /globalwise_api.php?action=delete_blog
-    // ══════════════════════════════════════════════════════════════════════════
     if ($action === 'delete_blog' && $_SERVER['REQUEST_METHOD'] === 'POST') {
-        $blogId = (int)($_POST['blog_id'] ?? 0);
-        if (!$blogId) { echo json_encode(['success' => false, 'message' => 'Invalid blog_id']); exit; }
-        $stmt = $db->prepare("DELETE FROM global_blog_posts WHERE id=? LIMIT 1");
-        $stmt->execute([$blogId]);
-        echo json_encode(['success' => $stmt->rowCount() > 0, 'message' => 'Blog post deleted']);
-        exit;
+        $blogId=(int)($_POST['blog_id']??0);
+        if (!$blogId){echo json_encode(['success'=>false,'message'=>'Invalid blog_id']);exit;}
+        $stmt=$db->prepare("DELETE FROM global_blog_posts WHERE id=? LIMIT 1"); $stmt->execute([$blogId]);
+        echo json_encode(['success'=>$stmt->rowCount()>0,'message'=>'Blog post deleted']); exit;
     }
 
     // ══════════════════════════════════════════════════════════════════════════
-    // SAVE MEDIA
-    // POST /globalwise_api.php?action=save_media
+    // SAVE / DELETE MEDIA
     // ══════════════════════════════════════════════════════════════════════════
     if ($action === 'save_media' && $_SERVER['REQUEST_METHOD'] === 'POST') {
-        $mediaId   = (int)($_POST['media_id']   ?? 0);
-        $sortOrder = (int)($_POST['sort_order'] ?? 1);
-        $src       = trim($_POST['src']         ?? '');
-        $alt       = trim($_POST['alt']         ?? '');
-        $updatedBy = $_SESSION['da360_user']['name'] ?? $_SESSION['da360_user']['username'] ?? 'unknown';
-
+        $mediaId=(int)($_POST['media_id']??0); $sortOrder=(int)($_POST['sort_order']??1);
+        $src=trim($_POST['src']??''); $alt=trim($_POST['alt']??'');
+        $updatedBy=$_SESSION['da360_user']['name']??$_SESSION['da360_user']['username']??'unknown';
         if ($mediaId) {
-            $stmt = $db->prepare("UPDATE global_media SET src=?, alt=?, sort_order=?, updated_at=NOW(), updated_by=? WHERE id=?");
-            $stmt->execute([$src, $alt, $sortOrder, $updatedBy, $mediaId]);
+            $stmt=$db->prepare("UPDATE global_media SET src=?,alt=?,sort_order=?,updated_at=NOW(),updated_by=? WHERE id=?");
+            $stmt->execute([$src,$alt,$sortOrder,$updatedBy,$mediaId]);
         } else {
-            $stmt = $db->prepare("INSERT INTO global_media (src, alt, sort_order, updated_at, updated_by) VALUES (?,?,?,NOW(),?)");
-            $stmt->execute([$src, $alt, $sortOrder, $updatedBy]);
-            $mediaId = (int)$db->lastInsertId();
+            $stmt=$db->prepare("INSERT INTO global_media (src,alt,sort_order,updated_at,updated_by) VALUES (?,?,?,NOW(),?)");
+            $stmt->execute([$src,$alt,$sortOrder,$updatedBy]); $mediaId=(int)$db->lastInsertId();
         }
-        echo json_encode(['success' => true, 'media_id' => $mediaId, 'message' => 'Media saved']);
-        exit;
+        echo json_encode(['success'=>true,'media_id'=>$mediaId,'message'=>'Media saved']); exit;
     }
-
-    // ══════════════════════════════════════════════════════════════════════════
-    // DELETE MEDIA
-    // POST /globalwise_api.php?action=delete_media
-    // ══════════════════════════════════════════════════════════════════════════
     if ($action === 'delete_media' && $_SERVER['REQUEST_METHOD'] === 'POST') {
-        $mediaId = (int)($_POST['media_id'] ?? 0);
-        if (!$mediaId) { echo json_encode(['success' => false, 'message' => 'Invalid media_id']); exit; }
-        $stmt = $db->prepare("DELETE FROM global_media WHERE id=? LIMIT 1");
-        $stmt->execute([$mediaId]);
-        echo json_encode(['success' => $stmt->rowCount() > 0, 'message' => 'Media deleted']);
-        exit;
+        $mediaId=(int)($_POST['media_id']??0);
+        if (!$mediaId){echo json_encode(['success'=>false,'message'=>'Invalid media_id']);exit;}
+        $stmt=$db->prepare("DELETE FROM global_media WHERE id=? LIMIT 1"); $stmt->execute([$mediaId]);
+        echo json_encode(['success'=>$stmt->rowCount()>0,'message'=>'Media deleted']); exit;
     }
 
     echo json_encode(['success' => false, 'message' => 'Unknown action: ' . htmlspecialchars($action)]);
