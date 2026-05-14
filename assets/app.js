@@ -86,15 +86,6 @@ const PAGE_CONFIG = {
     emptyTitle:  'No specialisation loaded yet',
     emptyDesc:   'Choose a course and location above to load the specialisation editor.',
   },
-  'schemas': {
-    api:         '/da360-admin/schemas_api.php',
-    action:      'get_schemas_html',
-    loadingText: 'Loading schemas…',
-    loadingDesc: 'Fetching schema fields from the database.',
-    emptyIcon:   '🧩',
-    emptyTitle:  'No schemas loaded yet',
-    emptyDesc:   'Choose a course and location above to load schemas.',
-  },
   'meta': {
     api:         '/da360-admin/meta_api.php',
     action:      'get_meta_html',
