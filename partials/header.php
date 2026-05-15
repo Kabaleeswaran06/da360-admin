@@ -44,5 +44,16 @@ $currentPage = basename($_SERVER['PHP_SELF'], '.php');
     </div>
   </div>
 </header>
+<script>
+  async function clearCache(tags) {
+  const res = await fetch('http://www.localhost:3000/api/revalidate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      secret: 'my-secret-123',
+      tags,
+    }),
+  });
+  </script>
 <!-- ── LAYOUT WRAPPER ────────────────────────────────────── -->
 <div class="layout">
