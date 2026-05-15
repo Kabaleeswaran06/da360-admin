@@ -145,8 +145,18 @@ try {
         $stmt = $db->query("SELECT src, alt FROM global_media ORDER BY sort_order");
         $media = $stmt->fetchAll(PDO::FETCH_ASSOC);
         foreach ($media as &$m) {
-            $m['src'] = $m['src'] ? $base_url . $m['src'] : '';
+           $m['src'] = $m['src'] ? $base_url . $m['src'] : '';
         } unset($m);
+
+        // Brand Logos (row 1 and row 2)
+        $stmt = $db->query("SELECT id, src, alt, row_number, sort_order FROM global_brand_logos ORDER BY row_number, sort_order");
+        $brandLogos = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($brandLogos as &$b) {
+            $b['src'] = $b['src'] ? $base_url . $b['src'] : ''; // ✅ add base_url
+        } unset($b);
+
+        $brandRow1 = array_filter($brandLogos, fn($b) => (int)$b['row_number'] === 1);
+        $brandRow2 = array_filter($brandLogos, fn($b) => (int)$b['row_number'] === 2);
 
         echo json_encode([
             'success'        => true,
@@ -159,6 +169,7 @@ try {
             'banners'        => $banners,
             'blogPosts'      => $blogs,
             'mediaLogos'     => $media,
+            'brandLogos' => array_values($brandLogos),
         ]);
         exit;
     }
@@ -224,6 +235,11 @@ try {
         // Media
         $stmt = $db->query("SELECT id, src, alt, sort_order FROM global_media ORDER BY sort_order");
         $media = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $stmt = $db->query("SELECT id, src, alt, row_number, sort_order FROM global_brand_logos ORDER BY row_number, sort_order");
+        $brandLogosHtml = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $brandRow1 = array_filter($brandLogosHtml, fn($b) => (int)$b['row_number'] === 1);
+        $brandRow2 = array_filter($brandLogosHtml, fn($b) => (int)$b['row_number'] === 2);
 
         ob_start(); ?>
 <style>
@@ -292,6 +308,7 @@ try {
     <button class="tab-btn"        data-tab="banners">🖼️ Banners</button>
     <button class="tab-btn"        data-tab="blogs">📝 Blog Posts</button>
     <button class="tab-btn"        data-tab="media">🏅 Media &amp; Awards</button>
+    <button class="tab-btn" data-tab="brandlogos">🏢 Brand Logos</button>
   </div>
 
   <!-- TAB 1 — HERO COUNTS -->
@@ -607,6 +624,69 @@ try {
       <?php endforeach; ?>
     </div>
     <button class="btn btn-plus" data-action="add-media">＋ Add Media Logo</button>
+  </div>
+
+  <!-- TAB 10 — BRAND LOGOS -->
+<div class="tab-pane" id="tab-pane-brandlogos">
+
+  <!-- Row 1 -->
+  <div class="info-card">
+    <div class="info-card-title">🏢 Brand Logos — Row 1 (1–18)</div>
+    <div id="brandlogos-row1-container">
+      <?php foreach (array_values($brandRow1) as $bi => $brand): ?>
+      <div class="item-block" data-item-id="<?= (int)$brand['id'] ?>" data-item-index="<?= $bi ?>" data-sort="<?= (int)$brand['sort_order'] ?>" data-row="1">
+        <div class="item-header">
+          <div style="display:flex;align-items:center;flex:1;gap:10px;">
+            <?php if ($brand['src']): ?><img src="/da360-admin<?= htmlspecialchars($brand['src']) ?>" style="width:40px;height:40px;object-fit:contain;border:1px solid #e2e8f0;border-radius:4px;" alt=""><?php endif; ?>
+            <div class="item-num"><?= $bi+1 ?></div>
+            <span class="item-title-text"><?= htmlspecialchars($brand['alt'] ?: 'Brand ' . ($bi+1)) ?></span>
+          </div>
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-success btn-sm" data-action="save-brandlogo">💾 Save</button>
+            <button class="btn btn-danger btn-sm"  data-action="delete-brandlogo">🗑</button>
+          </div>
+        </div>
+        <div class="item-body open" style="display:block;padding:16px;">
+          <div class="field-row"><label>Alt Text</label><input type="text" class="bl2-alt" value="<?= htmlspecialchars($brand['alt']) ?>" placeholder="e.g. Google"></div>
+          <?php if ($brand['src']): ?><img src="/da360-admin<?= htmlspecialchars($brand['src']) ?>" class="img-preview bl2-img-preview" alt="brand"><?php else: ?><img src="" class="img-preview bl2-img-preview" style="display:none;" alt="brand"><?php endif; ?>
+          <input type="file" class="bl2-img-file" accept="image/*" style="margin-top:4px;">
+          <input type="hidden" class="bl2-img-path" value="<?= htmlspecialchars($brand['src']) ?>">
+        </div>
+      </div>
+      <?php endforeach; ?>
+    </div>
+    <button class="btn btn-plus" data-action="add-brandlogo" data-row="1">＋ Add Row 1 Logo</button>
+  </div>
+
+  <!-- Row 2 -->
+    <div class="info-card" style="margin-top:20px;">
+      <div class="info-card-title">🏢 Brand Logos — Row 2 (19–36)</div>
+      <div id="brandlogos-row2-container">
+        <?php foreach (array_values($brandRow2) as $bi => $brand): ?>
+        <div class="item-block" data-item-id="<?= (int)$brand['id'] ?>" data-item-index="<?= $bi ?>" data-sort="<?= (int)$brand['sort_order'] ?>" data-row="2">
+          <div class="item-header">
+            <div style="display:flex;align-items:center;flex:1;gap:10px;">
+              <?php if ($brand['src']): ?><img src="/da360-admin<?= htmlspecialchars($brand['src']) ?>" style="width:40px;height:40px;object-fit:contain;border:1px solid #e2e8f0;border-radius:4px;" alt=""><?php endif; ?>
+              <div class="item-num"><?= $bi+1 ?></div>
+              <span class="item-title-text"><?= htmlspecialchars($brand['alt'] ?: 'Brand ' . ($bi+1)) ?></span>
+            </div>
+            <div style="display:flex;gap:8px;">
+              <button class="btn btn-success btn-sm" data-action="save-brandlogo">💾 Save</button>
+              <button class="btn btn-danger btn-sm"  data-action="delete-brandlogo">🗑</button>
+            </div>
+          </div>
+          <div class="item-body open" style="display:block;padding:16px;">
+            <div class="field-row"><label>Alt Text</label><input type="text" class="bl2-alt" value="<?= htmlspecialchars($brand['alt']) ?>" placeholder="e.g. Google"></div>
+            <?php if ($brand['src']): ?><img src="/da360-admin<?= htmlspecialchars($brand['src']) ?>" class="img-preview bl2-img-preview" alt="brand"><?php else: ?><img src="" class="img-preview bl2-img-preview" style="display:none;" alt="brand"><?php endif; ?>
+            <input type="file" class="bl2-img-file" accept="image/*" style="margin-top:4px;">
+            <input type="hidden" class="bl2-img-path" value="<?= htmlspecialchars($brand['src']) ?>">
+          </div>
+        </div>
+        <?php endforeach; ?>
+      </div>
+      <button class="btn btn-plus" data-action="add-brandlogo" data-row="2">＋ Add Row 2 Logo</button>
+    </div>
+
   </div>
 
 </div><!-- /gw-root -->
@@ -951,7 +1031,53 @@ try {
       container.appendChild(div);
       wireFileInput(div, '.md-img-file', '.md-img-preview', '.md-img-path');
     }
+    
+    // ── BRAND LOGOS ───────────────────────────────────────────────────────────
+    if (action === 'save-brandlogo') {
+      var block = btn.closest('.item-block');
+      apiPost({
+        _action:    'save_brandlogo',
+        brand_id:   block.dataset.itemId || 0,
+        sort_order: block.dataset.sort   || 1,
+        row_number: block.dataset.row    || 1,
+        alt:        block.querySelector('.bl2-alt').value,
+        src:        block.querySelector('.bl2-img-path').value,
+      }, btn, function (d) {
+        if (d.brand_id) block.dataset.itemId = d.brand_id;
+        var t = block.querySelector('.item-title-text');
+        if (t) t.textContent = block.querySelector('.bl2-alt').value || 'Brand';
+      });
+    }
 
+    if (action === 'delete-brandlogo') {
+      var block = btn.closest('.item-block');
+      if (!confirm('Delete this brand logo?')) return;
+      apiPost({ _action: 'delete_brandlogo', brand_id: block.dataset.itemId }, btn, function () { block.remove(); });
+    }
+
+    if (action === 'add-brandlogo') {
+      var row        = btn.dataset.row || '1';
+      var containerId = 'brandlogos-row' + row + '-container';
+      var container  = root.querySelector('#' + containerId);
+      var idx        = container.querySelectorAll('.item-block').length;
+      var div        = document.createElement('div');
+      div.className  = 'item-block';
+      div.dataset.itemId = '0';
+      div.dataset.itemIndex = idx;
+      div.dataset.sort = idx + 1;
+      div.dataset.row  = row;
+      div.innerHTML =
+        '<div class="item-header"><div style="display:flex;align-items:center;flex:1;"><div class="item-num">' + (idx+1) + '</div><span class="item-title-text">New Brand Logo</span></div>'
+        + '<div style="display:flex;gap:8px;"><button class="btn btn-success btn-sm" data-action="save-brandlogo">💾 Save</button><button class="btn btn-danger btn-sm" data-action="delete-brandlogo">🗑</button></div></div>'
+        + '<div class="item-body open" style="display:block;padding:16px;">'
+        + '<div class="field-row"><label>Alt Text</label><input type="text" class="bl2-alt" placeholder="e.g. Google"></div>'
+        + '<img src="" class="img-preview bl2-img-preview" style="display:none;" alt="brand">'
+        + '<input type="file" class="bl2-img-file" accept="image/*" style="margin-top:4px;">'
+        + '<input type="hidden" class="bl2-img-path" value="">'
+        + '</div>';
+      container.appendChild(div);
+      wireFileInput(div, '.bl2-img-file', '.bl2-img-preview', '.bl2-img-path');
+    }
   }); // end delegated click
 
   // ── Wire file inputs for existing blocks on page load ─────────────────────
@@ -980,6 +1106,9 @@ try {
   root.querySelectorAll('#media-container .item-block').forEach(function (b) {
     wireFileInput(b, '.md-img-file', '.md-img-preview', '.md-img-path');
   });
+  root.querySelectorAll('#brandlogos-row1-container .item-block, #brandlogos-row2-container .item-block').forEach(function (b) {
+  wireFileInput(b, '.bl2-img-file', '.bl2-img-preview', '.bl2-img-path');
+});
 
 })();
 GWJS;
@@ -1211,11 +1340,44 @@ GWJS;
         }
         echo json_encode(['success'=>true,'media_id'=>$mediaId,'message'=>'Media saved']); exit;
     }
+
     if ($action === 'delete_media' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         $mediaId=(int)($_POST['media_id']??0);
         if (!$mediaId){echo json_encode(['success'=>false,'message'=>'Invalid media_id']);exit;}
         $stmt=$db->prepare("DELETE FROM global_media WHERE id=? LIMIT 1"); $stmt->execute([$mediaId]);
         echo json_encode(['success'=>$stmt->rowCount()>0,'message'=>'Media deleted']); exit;
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // SAVE / DELETE BRAND LOGO
+    // ══════════════════════════════════════════════════════════════════════════
+    if ($action === 'save_brandlogo' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+        $brandId   = (int)($_POST['brand_id']   ?? 0);
+        $sortOrder = (int)($_POST['sort_order'] ?? 1);
+        $rowNumber = (int)($_POST['row_number'] ?? 1);
+        $src       = trim($_POST['src']         ?? '');
+        $alt       = trim($_POST['alt']         ?? '');
+        $updatedBy = $_SESSION['da360_user']['name'] ?? $_SESSION['da360_user']['username'] ?? 'unknown';
+
+        if ($brandId) {
+            $stmt = $db->prepare("UPDATE global_brand_logos SET src=?, alt=?, row_number=?, sort_order=?, updated_at=NOW(), updated_by=? WHERE id=?");
+            $stmt->execute([$src, $alt, $rowNumber, $sortOrder, $updatedBy, $brandId]);
+        } else {
+            $stmt = $db->prepare("INSERT INTO global_brand_logos (src, alt, row_number, sort_order, updated_at, updated_by) VALUES (?, ?, ?, ?, NOW(), ?)");
+            $stmt->execute([$src, $alt, $rowNumber, $sortOrder, $updatedBy]);
+            $brandId = (int)$db->lastInsertId();
+        }
+        echo json_encode(['success' => true, 'brand_id' => $brandId, 'message' => 'Brand logo saved']);
+        exit;
+    }
+
+    if ($action === 'delete_brandlogo' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+        $brandId = (int)($_POST['brand_id'] ?? 0);
+        if (!$brandId) { echo json_encode(['success' => false, 'message' => 'Invalid brand_id']); exit; }
+        $stmt = $db->prepare("DELETE FROM global_brand_logos WHERE id=? LIMIT 1");
+        $stmt->execute([$brandId]);
+        echo json_encode(['success' => $stmt->rowCount() > 0, 'message' => 'Brand logo deleted']);
+        exit;
     }
 
     echo json_encode(['success' => false, 'message' => 'Unknown action: ' . htmlspecialchars($action)]);
