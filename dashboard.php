@@ -23,7 +23,25 @@ $user = getCurrentUser();
 include __DIR__ . '/partials/header.php';
 include __DIR__ . '/partials/sidebar.php';
 ?>
-
+<style>
+.clear-cache-btn {
+  background: #ff4f1f;
+  color: white;
+  border: none;
+  padding: 10px 18px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: opacity 0.2s, transform 0.1s;
+  white-space: nowrap;
+}
+.clear-cache-btn:hover    { opacity: 0.85; transform: scale(1.02); }
+.clear-cache-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+</style>
 <main class="main-content">
   <div class="page-header">
     <div class="breadcrumb">
@@ -33,7 +51,10 @@ include __DIR__ . '/partials/sidebar.php';
       <div>
         <h1 class="page-title">Welcome, <span><?= htmlspecialchars(explode(' ', $user['name'])[0]) ?></span> 👋</h1>
         <p class="page-subtitle">Here's an overview of your content management system.</p>
-      </div>
+      </div>  
+       <button class="clear-cache-btn" onclick="clearAllCache()">
+        🔄 Clear Cache
+      </button>
     </div>
   </div>
 
@@ -109,7 +130,47 @@ include __DIR__ . '/partials/sidebar.php';
     </div>
 
   </div>
+<script>
+async function clearAllCache() {
+  const btn = document.querySelector('.clear-cache-btn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Clearing...';
 
+  const domains = [
+    'https://dev2.digitalacademy360.com',  
+    // 'https://digitalacademy360.com',  
+  ];
+
+  const payload = JSON.stringify({
+    secret: 'my-secret-123',
+    tags: ['aitools', 'coursewise', 'faqs', 'globalwise', 'locations'],
+  });
+
+  try {
+    const results = await Promise.allSettled(
+      domains.map(domain =>
+        fetch(`${domain}/api/revalidate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: payload,
+        })
+      )
+    );
+
+    const allOk = results.every(r => r.status === 'fulfilled');
+    btn.textContent = allOk ? '✅ Cleared!' : '⚠️ Partial';
+
+  } catch (err) {
+    btn.textContent = '❌ Error';
+    console.error(err);
+  }
+
+  setTimeout(() => {
+    btn.disabled = false;
+    btn.textContent = '🔄 Clear Cache';
+  }, 3000);
+}
+</script>
 </main>
 
 <?php include __DIR__ . '/partials/footer.php'; ?>
