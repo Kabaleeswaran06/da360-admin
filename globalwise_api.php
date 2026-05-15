@@ -149,14 +149,14 @@ try {
         } unset($m);
 
         // Brand Logos (row 1 and row 2)
-        $stmt = $db->query("SELECT id, src, alt, row_number, sort_order FROM global_brand_logos ORDER BY row_number, sort_order");
+        $stmt = $db->query("SELECT id, src, alt, row_num, sort_order FROM global_brand_logos ORDER BY row_num, sort_order");
         $brandLogos = $stmt->fetchAll(PDO::FETCH_ASSOC);
         foreach ($brandLogos as &$b) {
             $b['src'] = $b['src'] ? $base_url . $b['src'] : ''; // ✅ add base_url
         } unset($b);
 
-        $brandRow1 = array_filter($brandLogos, fn($b) => (int)$b['row_number'] === 1);
-        $brandRow2 = array_filter($brandLogos, fn($b) => (int)$b['row_number'] === 2);
+        $brandRow1 = array_filter($brandLogos, fn($b) => (int)$b['row_num'] === 1);
+        $brandRow2 = array_filter($brandLogos, fn($b) => (int)$b['row_num'] === 2);
 
         echo json_encode([
             'success'        => true,
@@ -236,10 +236,10 @@ try {
         $stmt = $db->query("SELECT id, src, alt, sort_order FROM global_media ORDER BY sort_order");
         $media = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        $stmt = $db->query("SELECT id, src, alt, row_number, sort_order FROM global_brand_logos ORDER BY row_number, sort_order");
+        $stmt = $db->query("SELECT id, src, alt, row_num, sort_order FROM global_brand_logos ORDER BY row_num, sort_order");
         $brandLogosHtml = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        $brandRow1 = array_filter($brandLogosHtml, fn($b) => (int)$b['row_number'] === 1);
-        $brandRow2 = array_filter($brandLogosHtml, fn($b) => (int)$b['row_number'] === 2);
+        $brandRow1 = array_filter($brandLogosHtml, fn($b) => (int)$b['row_num'] === 1);
+        $brandRow2 = array_filter($brandLogosHtml, fn($b) => (int)$b['row_num'] === 2);
 
         ob_start(); ?>
 <style>
@@ -1039,7 +1039,7 @@ try {
         _action:    'save_brandlogo',
         brand_id:   block.dataset.itemId || 0,
         sort_order: block.dataset.sort   || 1,
-        row_number: block.dataset.row    || 1,
+        row_num: block.dataset.row    || 1,
         alt:        block.querySelector('.bl2-alt').value,
         src:        block.querySelector('.bl2-img-path').value,
       }, btn, function (d) {
@@ -1354,16 +1354,16 @@ GWJS;
     if ($action === 'save_brandlogo' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         $brandId   = (int)($_POST['brand_id']   ?? 0);
         $sortOrder = (int)($_POST['sort_order'] ?? 1);
-        $rowNumber = (int)($_POST['row_number'] ?? 1);
+        $rowNumber = (int)($_POST['row_num'] ?? 1);
         $src       = trim($_POST['src']         ?? '');
         $alt       = trim($_POST['alt']         ?? '');
         $updatedBy = $_SESSION['da360_user']['name'] ?? $_SESSION['da360_user']['username'] ?? 'unknown';
 
         if ($brandId) {
-            $stmt = $db->prepare("UPDATE global_brand_logos SET src=?, alt=?, row_number=?, sort_order=?, updated_at=NOW(), updated_by=? WHERE id=?");
+            $stmt = $db->prepare("UPDATE global_brand_logos SET src=?, alt=?, row_num=?, sort_order=?, updated_at=NOW(), updated_by=? WHERE id=?");
             $stmt->execute([$src, $alt, $rowNumber, $sortOrder, $updatedBy, $brandId]);
         } else {
-            $stmt = $db->prepare("INSERT INTO global_brand_logos (src, alt, row_number, sort_order, updated_at, updated_by) VALUES (?, ?, ?, ?, NOW(), ?)");
+            $stmt = $db->prepare("INSERT INTO global_brand_logos (src, alt, row_num, sort_order, updated_at, updated_by) VALUES (?, ?, ?, ?, NOW(), ?)");
             $stmt->execute([$src, $alt, $rowNumber, $sortOrder, $updatedBy]);
             $brandId = (int)$db->lastInsertId();
         }
