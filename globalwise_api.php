@@ -158,6 +158,32 @@ try {
         $brandRow1 = array_filter($brandLogos, fn($b) => (int)$b['row_num'] === 1);
         $brandRow2 = array_filter($brandLogos, fn($b) => (int)$b['row_num'] === 2);
 
+        // ── Inside DA360 ──────────────────────────────────────────────────────────
+        $stmt = $db->query("SELECT id, block_num, item_type, image, title, location, highlight, bg_color, text_color FROM inside_da360 ORDER BY block_num, item_type, sort_order");
+        $insideRows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Group into the original nested structure
+        $insideGroups = [];
+        foreach ($insideRows as $row) {
+            $key = $row['block_num'] . '_' . $row['item_type'];
+            if (!isset($insideGroups[$key])) {
+                $insideGroups[$key] = [
+                    'type'  => $row['item_type'],
+                    'items' => [],
+                ];
+            }
+            $insideGroups[$key]['items'][] = [
+                'id'        => (int)$row['id'],
+                'image'     => $base_url . $row['image'],
+                'title'     => $row['title'],
+                'location'  => $row['location'],
+                'highlight' => (bool)$row['highlight'],
+                'bgColor'   => $row['bg_color'],
+                'textColor' => $row['text_color'],
+            ];
+        }
+        $insideDA360 = array_values($insideGroups);
+
         echo json_encode([
             'success'        => true,
             'heroCounts'     => $heroCounts,
@@ -170,6 +196,7 @@ try {
             'blogPosts'      => $blogs,
             'mediaLogos'     => $media,
             'brandLogos' => array_values($brandLogos),
+            'insideDA360' => $insideDA360,
         ]);
         exit;
     }
@@ -241,6 +268,10 @@ try {
         $brandRow1 = array_filter($brandLogosHtml, fn($b) => (int)$b['row_num'] === 1);
         $brandRow2 = array_filter($brandLogosHtml, fn($b) => (int)$b['row_num'] === 2);
 
+        // Inside DA360
+        $stmt = $db->query("SELECT id, block_num, item_type, image, title, location, highlight, bg_color, text_color, sort_order FROM inside_da360 ORDER BY block_num, item_type, sort_order");
+        $insideItems = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
         ob_start(); ?>
 <style>
 .gw *, .gw *::before, .gw *::after { box-sizing: border-box; }
@@ -309,6 +340,7 @@ try {
     <button class="tab-btn"        data-tab="blogs">📝 Blog Posts</button>
     <button class="tab-btn"        data-tab="media">🏅 Media &amp; Awards</button>
     <button class="tab-btn" data-tab="brandlogos">🏢 Brand Logos</button>
+    <button class="tab-btn" data-tab="insideda360">🎪 Inside DA360</button>
   </div>
 
   <!-- TAB 1 — HERO COUNTS -->
@@ -686,8 +718,76 @@ try {
       </div>
       <button class="btn btn-plus" data-action="add-brandlogo" data-row="2">＋ Add Row 2 Logo</button>
     </div>
+    
 
   </div>
+
+   <!-- TAB — INSIDE DA360 -->
+    <div class="tab-pane" id="tab-pane-insideda360">
+      <div class="info-card">
+        <div class="info-card-title">🎪 Inside DA360 Items</div>
+        <p style="font-size:13px;color:#64748b;margin-bottom:16px;">Items are grouped by Block Number + Type. Use block_num to group related items together.</p>
+        <div id="insideda360-container">
+          <?php foreach ($insideItems as $ii => $item): ?>
+          <div class="item-block" data-item-id="<?= (int)$item['id'] ?>" data-item-index="<?= $ii ?>" data-sort="<?= (int)$item['sort_order'] ?>">
+            <div class="item-header" data-toggle-item="inside-<?= $ii ?>">
+              <div style="display:flex;align-items:center;flex:1;gap:10px;">
+                <?php if ($item['image']): ?><img src="/da360-admin<?= htmlspecialchars($item['image']) ?>" style="width:40px;height:40px;object-fit:cover;border-radius:4px;border:1px solid #e2e8f0;" alt=""><?php endif; ?>
+                <div class="item-num"><?= $ii+1 ?></div>
+                <span class="item-title-text">Block <?= (int)$item['block_num'] ?> — <?= htmlspecialchars($item['item_type']) ?> — <?= htmlspecialchars($item['title'] ?: 'Untitled') ?></span>
+              </div>
+              <div style="display:flex;gap:8px;">
+                <button class="btn btn-success btn-sm" data-action="save-insideda360">💾 Save</button>
+                <button class="btn btn-danger btn-sm"  data-action="delete-insideda360">🗑</button>
+              </div>
+            </div>
+            <div class="item-body open" id="item-body-inside-<?= $ii ?>">
+              <div class="field-3col">
+                <div class="field-row">
+                  <label>Block Number</label>
+                  <input type="number" class="id360-block" value="<?= (int)$item['block_num'] ?>" min="1" placeholder="e.g. 1">
+                </div>
+                <div class="field-row">
+                  <label>Item Type</label>
+                  <select class="id360-type">
+                    <?php foreach (['firstItems','secondItems','thirdItems'] as $t): ?>
+                      <option value="<?= $t ?>" <?= $item['item_type'] === $t ? 'selected' : '' ?>><?= $t ?></option>
+                    <?php endforeach; ?>
+                  </select>
+                </div>
+                <div class="field-row">
+                  <label>Sort Order</label>
+                  <input type="number" class="id360-sort" value="<?= (int)$item['sort_order'] ?>" min="1">
+                </div>
+              </div>
+              <div class="field-2col">
+                <div class="field-row"><label>Title</label><input type="text" class="id360-title" value="<?= htmlspecialchars($item['title']) ?>" placeholder="e.g. Gen-AI Meet Up"></div>
+                <div class="field-row"><label>Location</label><input type="text" class="id360-location" value="<?= htmlspecialchars($item['location']) ?>" placeholder="e.g. Bengaluru"></div>
+              </div>
+              <div class="field-3col">
+                <div class="field-row">
+                  <label>Highlight?</label>
+                  <select class="id360-highlight">
+                    <option value="0" <?= !$item['highlight'] ? 'selected' : '' ?>>No</option>
+                    <option value="1" <?= $item['highlight']  ? 'selected' : '' ?>>Yes</option>
+                  </select>
+                </div>
+                <div class="field-row"><label>BG Color</label><input type="text" class="id360-bgcolor" value="<?= htmlspecialchars($item['bg_color']) ?>" placeholder="e.g. #E10F33"></div>
+                <div class="field-row"><label>Text Color</label><input type="text" class="id360-textcolor" value="<?= htmlspecialchars($item['text_color']) ?>" placeholder="e.g. #ffffff"></div>
+              </div>
+              <div>
+                <label>Image</label>
+                <?php if ($item['image']): ?><img src="/da360-admin<?= htmlspecialchars($item['image']) ?>" class="img-preview-lg id360-img-preview" alt="img"><?php else: ?><img src="" class="img-preview-lg id360-img-preview" style="display:none;" alt="img"><?php endif; ?>
+                <input type="file" class="id360-img-file" accept="image/*" style="margin-top:4px;">
+                <input type="hidden" class="id360-img-path" value="<?= htmlspecialchars($item['image']) ?>">
+              </div>
+            </div>
+          </div>
+          <?php endforeach; ?>
+        </div>
+        <button class="btn btn-plus" data-action="add-insideda360">＋ Add Item</button>
+      </div>
+    </div>
 
 </div><!-- /gw-root -->
 <?php
@@ -1078,6 +1178,58 @@ try {
       container.appendChild(div);
       wireFileInput(div, '.bl2-img-file', '.bl2-img-preview', '.bl2-img-path');
     }
+
+    // ── INSIDE DA360 ──────────────────────────────────────────────────────────
+    if (action === 'save-insideda360') {
+      var block = btn.closest('.item-block');
+      apiPost({
+        _action:    'save_insideda360',
+        item_id:    block.dataset.itemId || 0,
+        block_num:  block.querySelector('.id360-block').value,
+        item_type:  block.querySelector('.id360-type').value,
+        title:      block.querySelector('.id360-title').value,
+        location:   block.querySelector('.id360-location').value,
+        highlight:  block.querySelector('.id360-highlight').value,
+        bg_color:   block.querySelector('.id360-bgcolor').value,
+        text_color: block.querySelector('.id360-textcolor').value,
+        image:      block.querySelector('.id360-img-path').value,
+        sort_order: block.querySelector('.id360-sort').value,
+      }, btn, function (d) {
+        if (d.item_id) block.dataset.itemId = d.item_id;
+        var t = block.querySelector('.item-title-text');
+        if (t) t.textContent = 'Block ' + block.querySelector('.id360-block').value + ' — ' + block.querySelector('.id360-type').value + ' — ' + block.querySelector('.id360-title').value;
+      });
+    }
+
+    if (action === 'delete-insideda360') {
+      var block = btn.closest('.item-block');
+      if (!confirm('Delete this item?')) return;
+      apiPost({ _action: 'delete_insideda360', item_id: block.dataset.itemId }, btn, function () { block.remove(); });
+    }
+
+    if (action === 'add-insideda360') {
+      var container = root.querySelector('#insideda360-container');
+      var idx = container.querySelectorAll('.item-block').length;
+      var div = document.createElement('div');
+      div.className = 'item-block'; div.dataset.itemId = '0'; div.dataset.itemIndex = idx; div.dataset.sort = idx+1;
+      div.innerHTML =
+        '<div class="item-header" data-toggle-item="inside-new-'+idx+'">'
+        +'<div style="display:flex;align-items:center;flex:1;"><div class="item-num">'+(idx+1)+'</div><span class="item-title-text">New Item</span></div>'
+        +'<div style="display:flex;gap:8px;"><button class="btn btn-success btn-sm" data-action="save-insideda360">💾 Save</button><button class="btn btn-danger btn-sm" data-action="delete-insideda360">🗑</button></div>'
+        +'</div>'
+        +'<div class="item-body open" id="item-body-inside-new-'+idx+'">'
+        +'<div class="field-3col"><div class="field-row"><label>Block Number</label><input type="number" class="id360-block" value="1" min="1"></div>'
+        +'<div class="field-row"><label>Item Type</label><select class="id360-type"><option value="firstItems">firstItems</option><option value="secondItems">secondItems</option><option value="thirdItems">thirdItems</option></select></div>'
+        +'<div class="field-row"><label>Sort Order</label><input type="number" class="id360-sort" value="'+(idx+1)+'" min="1"></div></div>'
+        +'<div class="field-2col"><div class="field-row"><label>Title</label><input type="text" class="id360-title" placeholder="e.g. Gen-AI Meet Up"></div><div class="field-row"><label>Location</label><input type="text" class="id360-location" placeholder="e.g. Bengaluru"></div></div>'
+        +'<div class="field-3col"><div class="field-row"><label>Highlight?</label><select class="id360-highlight"><option value="0">No</option><option value="1">Yes</option></select></div>'
+        +'<div class="field-row"><label>BG Color</label><input type="text" class="id360-bgcolor" placeholder="#E10F33"></div>'
+        +'<div class="field-row"><label>Text Color</label><input type="text" class="id360-textcolor" placeholder="#ffffff"></div></div>'
+        +'<div><label>Image</label><img src="" class="img-preview-lg id360-img-preview" style="display:none;" alt="img"><input type="file" class="id360-img-file" accept="image/*" style="margin-top:4px;"><input type="hidden" class="id360-img-path" value=""></div>'
+        +'</div>';
+      container.appendChild(div);
+      wireFileInput(div, '.id360-img-file', '.id360-img-preview', '.id360-img-path');
+    }
   }); // end delegated click
 
   // ── Wire file inputs for existing blocks on page load ─────────────────────
@@ -1107,9 +1259,11 @@ try {
     wireFileInput(b, '.md-img-file', '.md-img-preview', '.md-img-path');
   });
   root.querySelectorAll('#brandlogos-row1-container .item-block, #brandlogos-row2-container .item-block').forEach(function (b) {
-  wireFileInput(b, '.bl2-img-file', '.bl2-img-preview', '.bl2-img-path');
-});
-
+    wireFileInput(b, '.bl2-img-file', '.bl2-img-preview', '.bl2-img-path');
+  });
+  root.querySelectorAll('#insideda360-container .item-block').forEach(function (b) {
+    wireFileInput(b, '.id360-img-file', '.id360-img-preview', '.id360-img-path');
+  });
 })();
 GWJS;
 
@@ -1377,6 +1531,46 @@ GWJS;
         $stmt = $db->prepare("DELETE FROM global_brand_logos WHERE id=? LIMIT 1");
         $stmt->execute([$brandId]);
         echo json_encode(['success' => $stmt->rowCount() > 0, 'message' => 'Brand logo deleted']);
+        exit;
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // SAVE / DELETE INSIDE DA360
+    // ══════════════════════════════════════════════════════════════════════════
+    if ($action === 'save_insideda360' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+        $itemId    = (int)($_POST['item_id']    ?? 0);
+        $blockNum  = (int)($_POST['block_num']  ?? 1);
+        $itemType  = trim($_POST['item_type']   ?? 'firstItems');
+        $title     = trim($_POST['title']       ?? '');
+        $location  = trim($_POST['location']    ?? '');
+        $highlight = (int)($_POST['highlight']  ?? 0);
+        $bgColor   = trim($_POST['bg_color']    ?? '');
+        $textColor = trim($_POST['text_color']  ?? '');
+        $image     = trim($_POST['image']       ?? '');
+        $sortOrder = (int)($_POST['sort_order'] ?? 1);
+        $updatedBy = $_SESSION['da360_user']['name'] ?? $_SESSION['da360_user']['username'] ?? 'unknown';
+
+        $allowed = ['firstItems', 'secondItems', 'thirdItems'];
+        if (!in_array($itemType, $allowed)) $itemType = 'firstItems';
+
+        if ($itemId) {
+            $stmt = $db->prepare("UPDATE inside_da360 SET block_num=?, item_type=?, title=?, location=?, highlight=?, bg_color=?, text_color=?, image=?, sort_order=?, updated_at=NOW(), updated_by=? WHERE id=?");
+            $stmt->execute([$blockNum, $itemType, $title, $location, $highlight, $bgColor, $textColor, $image, $sortOrder, $updatedBy, $itemId]);
+        } else {
+            $stmt = $db->prepare("INSERT INTO inside_da360 (block_num, item_type, title, location, highlight, bg_color, text_color, image, sort_order, updated_at, updated_by) VALUES (?,?,?,?,?,?,?,?,?,NOW(),?)");
+            $stmt->execute([$blockNum, $itemType, $title, $location, $highlight, $bgColor, $textColor, $image, $sortOrder, $updatedBy]);
+            $itemId = (int)$db->lastInsertId();
+        }
+        echo json_encode(['success' => true, 'item_id' => $itemId, 'message' => 'Item saved']);
+        exit;
+    }
+
+    if ($action === 'delete_insideda360' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+        $itemId = (int)($_POST['item_id'] ?? 0);
+        if (!$itemId) { echo json_encode(['success' => false, 'message' => 'Invalid item_id']); exit; }
+        $stmt = $db->prepare("DELETE FROM inside_da360 WHERE id=? LIMIT 1");
+        $stmt->execute([$itemId]);
+        echo json_encode(['success' => $stmt->rowCount() > 0, 'message' => 'Item deleted']);
         exit;
     }
 
