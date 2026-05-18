@@ -11,6 +11,7 @@ $currentPage = basename($_SERVER['PHP_SELF'], '.php');
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>DA360 Admin — <?= ucfirst($currentPage) ?></title>
+   <link rel="icon" type="image/png" href="images/da360logo.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/da360-admin/assets/style.css">
