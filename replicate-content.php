@@ -11,7 +11,7 @@ requireLogin();
 $db = getDB();
 
 $courses = $db->query(
-  "SELECT id, label FROM courses WHERE is_active=1 ORDER BY id"
+  "SELECT id, label FROM courses WHERE is_active=1 ORDER BY sort_order"
 )->fetchAll(PDO::FETCH_ASSOC);
 
 include __DIR__ . '/partials/header.php';
