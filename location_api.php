@@ -39,7 +39,8 @@ try {
             phone,
             imgsrc,
             direction_link,
-            address_lines
+            address_lines,
+            show_details
         FROM locations
         WHERE is_active = 1
         ORDER BY sort_order, label
@@ -66,6 +67,7 @@ try {
                 'imgsrc'        => $row['imgsrc']        ?? '',
                 'directionlink' => $row['direction_link'] ?? '',
                 'addressLines'  => $addressLines,
+                'showDetails'   => (bool)$row['show_details'], 
             ],
         ];
     }

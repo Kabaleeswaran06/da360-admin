@@ -38,6 +38,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     exit;
 }
 
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'toggle_show_details') {
+    header('Content-Type: application/json');
+    $id = (int)($_POST['id'] ?? 0);
+    if (!$id) { echo json_encode(['success' => false, 'message' => 'Invalid ID']); exit; }
+
+    // Flip the current value
+    $stmt = $db->prepare("
+        UPDATE locations
+        SET show_details = IF(show_details = 1, 0, 1),
+            updated_at   = NOW()
+        WHERE id = :id
+    ");
+    $stmt->execute([':id' => $id]);
+
+    // Return the NEW value so the UI can update immediately
+    $newVal = (int)$db->query("SELECT show_details FROM locations WHERE id = $id")->fetchColumn();
+    echo json_encode(['success' => true, 'show_details' => $newVal]);
+    exit;
+}
+
 $locations = $db->query("
     SELECT l.*, COUNT(cc.id) AS content_count
     FROM locations l
@@ -80,6 +100,7 @@ include __DIR__ . '/partials/sidebar.php';
             <th>Content Entries</th>
             <th>Sort Order</th>
             <th>Status</th>
+            <th>Display</th>
             <th>Actions</th>
           </tr>
         </thead>
@@ -106,6 +127,40 @@ include __DIR__ . '/partials/sidebar.php';
               <?php else: ?>
                 <span class="badge badge-gray">Inactive</span>
               <?php endif; ?>
+            </td>
+            <td>
+              <button
+                class="toggle-btn"
+                data-id="<?= $loc['id'] ?>"
+                data-state="<?= $loc['show_details'] ?>"
+                onclick="toggleShowDetails(this)"
+                style="
+                  background: <?= $loc['show_details'] ? 'var(--accent, #e85d2f)' : 'var(--surface, #e5e5e5)' ?>;
+                  border: none;
+                  border-radius: 999px;
+                  width: 44px;
+                  height: 24px;
+                  cursor: pointer;
+                  position: relative;
+                  transition: background 0.2s;
+                  flex-shrink: 0;
+                  display: inline-block;
+                "
+                title="<?= $loc['show_details'] ? 'Hide location details' : 'Show location details' ?>"
+              >
+                <span style="
+                  position: absolute;
+                  top: 3px;
+                  left: <?= $loc['show_details'] ? '23px' : '3px' ?>;
+                  width: 18px;
+                  height: 18px;
+                  border-radius: 50%;
+                  background: #fff;
+                  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+                  transition: left 0.2s;
+                  display: block;
+                "></span>
+              </button>
             </td>
             <td>
               <button
@@ -258,6 +313,34 @@ function showToast(msg, type = 'success') {
   t.className    = 'toast toast-' + type;
   t.style.display = 'block';
   setTimeout(() => { t.style.display = 'none'; }, 3000);
+}
+async function toggleShowDetails(btn) {
+  btn.disabled = true;
+  const id = btn.dataset.id;
+
+  const body = new FormData();
+  body.append('action', 'toggle_show_details');
+  body.append('id', id);
+
+  try {
+    const res  = await fetch(window.location.href, { method: 'POST', body });
+    const data = await res.json();
+
+    if (data.success) {
+      const isOn = data.show_details === 1;
+      btn.dataset.state               = data.show_details;
+      btn.style.background            = isOn ? 'var(--accent, #e85d2f)' : 'var(--surface, #e5e5e5)';
+      btn.querySelector('span').style.left = isOn ? '23px' : '3px';
+      btn.title = isOn ? 'Hide location details' : 'Show location details';
+      showToast(isOn ? 'Location details enabled.' : 'Location details hidden.', 'success');
+    } else {
+      showToast('Toggle failed.', 'error');
+    }
+  } catch {
+    showToast('Something went wrong.', 'error');
+  } finally {
+    btn.disabled = false;
+  }
 }
 </script>
 

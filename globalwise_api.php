@@ -1277,10 +1277,17 @@ GWJS;
     if ($action === 'upload_image' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         $folder = preg_replace('/[^a-z0-9_\-]/', '', strtolower($_POST['folder'] ?? 'global'));
         if ($folder === '') $folder = 'global';
-        $path = handleImageUpload('file', $folder);
-        echo $path
-            ? json_encode(['success' => true,  'path'    => $path])
-            : json_encode(['success' => false, 'message' => 'Upload failed or invalid file type']);
+        
+        // ── TEMP DEBUG — remove after fixing ──
+        $uploadDir = __DIR__ . '/uploads/' . $folder . '/';
+        echo json_encode([
+            'debug'      => true,
+            'uploadDir'  => $uploadDir,
+            'dirExists'  => is_dir($uploadDir),
+            'isWritable' => is_writable($uploadDir),
+            'fileError'  => $_FILES['file']['error'] ?? 'no file',
+            'tmpName'    => $_FILES['file']['tmp_name'] ?? 'none',
+        ]);
         exit;
     }
 

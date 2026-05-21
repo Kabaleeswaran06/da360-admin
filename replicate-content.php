@@ -66,7 +66,8 @@ include __DIR__ . '/partials/sidebar.php';
   <div id="replicate-area" style="display:none;margin-top:24px;">
 
     <div style="background:#fff3cd;border:1px solid #ffc107;border-radius:10px;padding:14px 20px;margin-bottom:20px;font-size:14px;">
-      ⚠️ <strong>Warning:</strong> Replicating will <strong>overwrite</strong> existing data in the target location. This action cannot be undone.
+      ⚠️ <strong>Warning:</strong> Replicating will <strong>overwrite</strong> existing data in the target location. This action cannot be undone.<br>
+      ⚠️ <strong>Note:</strong> Meta Tags and Schemas has to be Replicate manually 
     </div>
 
     <!-- Tabs -->

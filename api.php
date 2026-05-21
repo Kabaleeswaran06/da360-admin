@@ -693,6 +693,9 @@ try {
         echo json_encode(['success' => true, 'message' => "$count FAQs replicated successfully"]);
         exit;
     }
+    
+    // ── COURSE REPLICATION ACTIONS ────────────────────────────────────
+    require_once __DIR__ . '/replicate-course-api-actions.php';
 
     // ── Unknown action ────────────────────────────────────────────────────────
     echo json_encode(['success' => false, 'message' => 'Unknown action: ' . htmlspecialchars($action)]);
