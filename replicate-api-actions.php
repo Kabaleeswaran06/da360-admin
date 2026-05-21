@@ -1,4 +1,13 @@
 <?php
+
+// At the top of each replicate action, replace:
+$courseId = (int)($_POST['course_id'] ?? 0);
+
+// With this pattern:
+$fromCourseId = (int)($_POST['course_id']     ?? 0);
+$toCourseId   = (int)($_POST['to_course_id']  ?? 0);
+if (!$toCourseId) $toCourseId = $fromCourseId; // backwards compatible
+
 // ═══════════════════════════════════════════════════════════════════
 // ADD THESE 4 BLOCKS TO api.php — paste before the "Unknown action" line
 // ═══════════════════════════════════════════════════════════════════
