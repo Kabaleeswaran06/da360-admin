@@ -1,8 +1,8 @@
 <?php
 // ── Database Configuration ──
 define('DB_HOST', 'localhost');
-define('DB_USER', 'espouser');
-define('DB_PASS', 'N3SLwfu@cQG9');
+define('DB_USER', 'root');
+define('DB_PASS', '');
 define('DB_NAME', 'da360_cms');
 
 function getDB() {
