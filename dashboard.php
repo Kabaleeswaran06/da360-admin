@@ -137,7 +137,7 @@ async function clearAllCache() {
   btn.textContent = '⏳ Clearing...';
 
   const domains = [
-    'https://digitalacademy360.com',  
+    'https://digitalacademy360.com',
   ];
 
   const payload = JSON.stringify({
@@ -152,12 +152,21 @@ async function clearAllCache() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: payload,
+        }).then(res => {
+          if (!res.ok) throw new Error(`${domain} → HTTP ${res.status}`);
+          return res.json();
         })
       )
     );
 
-    const allOk = results.every(r => r.status === 'fulfilled');
-    btn.textContent = allOk ? '✅ Cleared!' : '⚠️ Partial';
+    const failed = results.filter(r => r.status === 'rejected');
+
+    if (failed.length === 0) {
+      btn.textContent = '✅ Cleared!';
+    } else {
+      btn.textContent = `⚠️ ${failed.length}/${results.length} failed`;
+      failed.forEach(f => console.error(f.reason)); // see exact error in console
+    }
 
   } catch (err) {
     btn.textContent = '❌ Error';
