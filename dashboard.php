@@ -138,7 +138,7 @@ async function clearAllCache() {
 
   const domains = [
     'https://dev2.digitalacademy360.com',  
-    // 'https://digitalacademy360.com',  
+    'https://digitalacademy360.com',  
   ];
 
   const payload = JSON.stringify({
