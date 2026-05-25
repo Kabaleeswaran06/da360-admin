@@ -142,7 +142,7 @@ async function clearAllCache() {
 
   const payload = JSON.stringify({
     secret: 'my-secret-123',
-    tags: ['aitools', 'coursewise', 'faqs', 'globalwise', 'locations','menu-details'],
+    tags: ['aitools', 'coursewise', 'faqs', 'globalwise', 'locations','menu-details','digitalmarketing'],
   });
 
   try {
