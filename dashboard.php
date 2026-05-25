@@ -137,7 +137,7 @@ async function clearAllCache() {
   btn.textContent = '⏳ Clearing...';
 
   const domains = [
-    'https://www.digitalacademy360.com','https://www.dev2.digitalacademy360.com'
+    'https://www.digitalacademy360.com','https://dev2.digitalacademy360.com'
   ];
 
   const payload = JSON.stringify({
