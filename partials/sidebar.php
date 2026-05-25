@@ -13,6 +13,7 @@ $navItems = [
   ['slug' => 'schemas',          'label' => 'Schemas',  'icon' => 'schemas',     'href' => 'schemas.php'],
   ['slug' => 'coursewise',       'label' => 'Course section',  'icon' => 'coursewise',     'href' => 'coursewise.php'],
   ['slug' => 'globalwise',      'label' => 'Global section',  'icon' => 'globalwise',     'href' => 'globalwise.php'],
+  ['slug' => 'courses Details', 'label' => 'Courses',          'icon' => 'book-open',  'href' => 'MenuDetails.php'],
   ['slug' => 'courses',         'label' => 'Courses',          'icon' => 'book-open',  'href' => 'courses.php'],
   ['slug' => 'locations',       'label' => 'Locations',        'icon' => 'map-pin',    'href' => 'locations.php'],
 ];
