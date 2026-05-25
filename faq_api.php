@@ -1,9 +1,11 @@
 <?php
 // ── CORS (mirrors api.php) ─────────────────────────────────────────────────
 $allowedOrigins = [
-    'http://localhost:3000',
-    'http://localhost',
-    // 'https://yourproductiondomain.com',
+    'https://www.digitalacademy360.com',
+    'https://digitalacademy360.com',
+    'https://dev2.digitalacademy360.com',
+    // 'http://localhost:3000',
+    // 'http://localhost',
 ];
 $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
 if (in_array($origin, $allowedOrigins, true)) {
