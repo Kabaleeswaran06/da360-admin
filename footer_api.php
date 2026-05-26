@@ -41,7 +41,7 @@ if (!isAuthorized()) {
     exit;
 }
 
-$action = $_GET['action'] ?? '';
+$action = $_GET['action'] ?? $_POST['action'] ?? '';
 
 $SECTIONS = ['programmes', 'company', 'resources', 'career', 'cities', 'legal'];
 
