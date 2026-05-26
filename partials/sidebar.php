@@ -16,7 +16,8 @@ $navItems = [
   ['slug' => 'courses Details', 'label' => 'Courses Details',  'icon' => 'courseDetails',  'href' => 'MenuDetails.php'],
   ['slug' => 'courses',         'label' => 'Courses',          'icon' => 'book-open',  'href' => 'courses.php'],
   ['slug' => 'locations',       'label' => 'Locations',        'icon' => 'map-pin',    'href' => 'locations.php'],
-  ['slug' => 'digitalmarketing', 'label' => 'DM Courses', 'icon' => 'digitalmarketing', 'href' => 'digitalmarketing.php'],
+  ['slug' => 'digitalmarketing', 'label' => 'DM Courses',       'icon' => 'digitalmarketing', 'href' => 'digitalmarketing.php'],
+  ['slug' => 'footer',           'label' => 'Footer',           'icon' => 'footer',      'href' => 'footer.php'],
 ];
 
 $icons = [
@@ -35,6 +36,7 @@ $icons = [
   'register' => '<svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">  <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>  <circle cx="9" cy="7" r="4"/>  <line x1="19" y1="8" x2="19" y2="14"/>  <line x1="22" y1="11" x2="16" y2="11"/></svg>',
   'digitalmarketing' => '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l18-5v12l-18-5v-2z"/><path d="M11 11v6"/><path d="M7 13v4"/> <path d="M15 9v8"/></svg>',
   'courseDetails' => '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 0 4 24V4.5A2.5 2.5 0 0 1 6.5 2z"/><line x1="8" y1="7" x2="16" y2="7"/><line x1="8" y1="11" x2="16" y2="11"/></svg>',
+  'footer' => '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 16h18"/><path d="M8 8h.01"/><path d="M12 8h.01"/><path d="M16 8h.01"/></svg>',
 ];
 $register="/da360-admin/register.php";
 ?>
