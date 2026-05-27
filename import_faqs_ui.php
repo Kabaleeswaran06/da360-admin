@@ -1,12 +1,17 @@
 <?php
 /**
- * DA360 — FAQ Importer UI (Excel)
+ * DA360 — FAQ Importer UI (Excel 97-2003 .xls)
  * Place in project root (same level as config/)
  *
- * EXCEL FORMAT:
- * Row 1 : PROGRAM | | DELIVERY | | PLACEMENT | | CERTIFICATION | | FEES
- * Row 2 : Question | Answer | Question | Answer | ... (skipped)
- * Row 3+: data rows (max 10 per category)
+ * REQUIREMENT — no composer needed, just one file:
+ *   Download SimpleXLS.php from:
+ *   https://raw.githubusercontent.com/shuchkin/simplexls/master/src/SimpleXLS.php
+ *   Place it in the same folder as this file.
+ *
+ * EXCEL FORMAT (.xls):
+ *   Row 1 : PROGRAM | | DELIVERY | | PLACEMENT | | CERTIFICATION | | FEES
+ *   Row 2 : Question | Answer | Question | Answer | ...  (skipped)
+ *   Row 3+: data (max 10 rows per category)
  */
 
 require_once __DIR__ . '/config/db.php';
@@ -46,6 +51,10 @@ $categoryAliases = [
     'fee'           => 'Fee',
 ];
 
+// ── Check SimpleXLS is available ──────────────────────────────────────────────
+$simpleXlsPath = __DIR__ . '/SimpleXLS.php';
+$libMissing    = !file_exists($simpleXlsPath);
+
 // ── Process upload ────────────────────────────────────────────────────────────
 $result  = null;
 $errors  = [];
@@ -57,63 +66,65 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (!$courseId   || !isset($courses[$courseId]))     $errors[] = 'Please select a valid Course.';
     if (!$locationId || !isset($locations[$locationId])) $errors[] = 'Please select a valid Location.';
-    if (empty($_FILES['excel_file']['tmp_name']))         $errors[] = 'Please upload an Excel file.';
+    if (empty($_FILES['xls_file']['tmp_name']))           $errors[] = 'Please upload an Excel file.';
 
-    $uploadedName = $_FILES['excel_file']['name'] ?? '';
+    $uploadedName = $_FILES['xls_file']['name'] ?? '';
     $ext = strtolower(pathinfo($uploadedName, PATHINFO_EXTENSION));
-    if (!empty($uploadedName) && $ext !== 'xlsx') {
-        $errors[] = 'Only .xlsx files are accepted.';
+    if (!empty($uploadedName) && $ext !== 'xls') {
+        $errors[] = 'Only .xls (Excel 97-2003) files are accepted.';
+    }
+
+    if ($libMissing) {
+        $errors[] = 'SimpleXLS.php not found — see the setup instructions above.';
     }
 
     if (empty($errors)) {
-        // ── Load PhpSpreadsheet ───────────────────────────────────────────────
-        $autoload = __DIR__ . '/vendor/autoload.php';
-        if (!file_exists($autoload)) {
-            $errors[] = 'PhpSpreadsheet not installed. Run: composer require phpoffice/phpspreadsheet';
+        require_once $simpleXlsPath;
+
+        $xls = SimpleXLS::parse($_FILES['xls_file']['tmp_name']);
+
+        if (!$xls) {
+            $errors[] = 'Could not read the .xls file: ' . SimpleXLS::parseError();
         } else {
-            require_once $autoload;
+            // rows() returns 0-indexed 2D array
+            $data = $xls->rows();
 
-            try {
-                $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($_FILES['excel_file']['tmp_name']);
-                $sheet       = $spreadsheet->getActiveSheet();
-                $data        = $sheet->toArray(null, true, true, false);
+            if (count($data) < 3) {
+                $errors[] = 'Excel file must have at least 3 rows (category header, sub-header, data).';
+            } else {
+                // ── Row 0: category headers ───────────────────────────────────
+                $categoryRow    = array_map(fn($v) => strtolower(trim((string)$v)), $data[0]);
+                $catQuestionCol = []; // category => question col index
 
-                if (count($data) < 3) {
-                    $errors[] = 'Excel file must have at least 3 rows (header row 1, sub-header row 2, data from row 3).';
+                foreach ($categoryRow as $colIdx => $cellVal) {
+                    if ($cellVal !== '' && isset($categoryAliases[$cellVal])) {
+                        $cat = $categoryAliases[$cellVal];
+                        if (!isset($catQuestionCol[$cat])) {
+                            $catQuestionCol[$cat] = $colIdx;
+                        }
+                    }
+                }
+
+                if (empty($catQuestionCol)) {
+                    $errors[] = 'No valid category headers found in Row 1. Expected: PROGRAM, DELIVERY, PLACEMENT, CERTIFICATION, FEES';
                 } else {
-                    // ── Parse Row 0: category headers ─────────────────────────
-                    $categoryRow    = array_map(fn($v) => strtolower(trim((string)$v)), $data[0]);
-                    $catQuestionCol = []; // category => question_col_index
-
-                    foreach ($categoryRow as $colIdx => $cellVal) {
-                        if ($cellVal !== '' && isset($categoryAliases[$cellVal])) {
-                            $cat = $categoryAliases[$cellVal];
-                            if (!isset($catQuestionCol[$cat])) {
-                                $catQuestionCol[$cat] = $colIdx;
-                            }
+                    // ── Rows 2+: data ─────────────────────────────────────────
+                    $grouped = [];
+                    for ($rowIdx = 2; $rowIdx < count($data); $rowIdx++) {
+                        $row = array_map(fn($v) => trim((string)$v), $data[$rowIdx]);
+                        foreach ($catQuestionCol as $cat => $qCol) {
+                            $aCol     = $qCol + 1;
+                            $question = $row[$qCol] ?? '';
+                            $answer   = $row[$aCol] ?? '';
+                            if ($question === '' && $answer === '') continue;
+                            $grouped[$cat][] = ['question' => $question, 'answer' => $answer];
                         }
                     }
 
-                    if (empty($catQuestionCol)) {
-                        $errors[] = 'No valid category headers found in Row 1. Expected: PROGRAM, DELIVERY, PLACEMENT, CERTIFICATION, FEES';
+                    if (empty($grouped)) {
+                        $errors[] = 'No data rows found after the header rows.';
                     } else {
-                        // ── Parse data rows (from Row 2 onwards) ──────────────
-                        $grouped = [];
-                        for ($rowIdx = 2; $rowIdx < count($data); $rowIdx++) {
-                            $row = array_map(fn($v) => trim((string)$v), $data[$rowIdx]);
-                            foreach ($catQuestionCol as $cat => $qCol) {
-                                $aCol     = $qCol + 1;
-                                $question = $row[$qCol] ?? '';
-                                $answer   = $row[$aCol] ?? '';
-                                if ($question === '' && $answer === '') continue;
-                                $grouped[$cat][] = ['question' => $question, 'answer' => $answer];
-                            }
-                        }
-
-                        if (empty($grouped)) {
-                            $errors[] = 'No data rows found after the header rows.';
-                        } else {
-                            // ── Insert into DB ────────────────────────────────
+                        try {
                             $db  = getDB();
                             $sql = "
                                 INSERT INTO course_faqs
@@ -152,11 +163,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 'course'   => $courses[$courseId],
                                 'location' => $locations[$locationId],
                             ];
+                        } catch (Exception $e) {
+                            $errors[] = 'DB Error: ' . $e->getMessage();
                         }
                     }
                 }
-            } catch (Exception $e) {
-                $errors[] = 'Error reading Excel file: ' . $e->getMessage();
             }
         }
     }
@@ -178,16 +189,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   .card-header p  { color: rgba(255,255,255,.75); font-size: 13px; margin-top: 4px; }
   .card-body { padding: 32px; }
 
+  /* Setup banner */
+  .setup-banner { background: #fffbeb; border: 1.5px solid #fcd34d; border-radius: 10px; padding: 16px 18px; margin-bottom: 24px; }
+  .setup-banner h3 { font-size: 13px; font-weight: 700; color: #92400e; margin-bottom: 8px; }
+  .setup-banner ol { margin-left: 18px; font-size: 12px; color: #78350f; line-height: 1.8; }
+  .setup-banner code { background: #fef3c7; padding: 1px 6px; border-radius: 4px; font-size: 11px; font-family: monospace; }
+  .setup-banner a { color: #d97706; word-break: break-all; }
+
   .field { margin-bottom: 20px; }
   label  { display: block; font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: .4px; margin-bottom: 6px; }
   select { width: 100%; padding: 10px 14px; border: 1.5px solid #cbd5e1; border-radius: 8px; font-size: 14px; color: #1e293b; background: #fff; transition: border-color .15s; }
   select:focus { border-color: #6366f1; outline: none; }
 
-  /* File drop zone */
   .file-zone {
     border: 2px dashed #cbd5e1; border-radius: 10px; padding: 36px 20px;
-    text-align: center; cursor: pointer; transition: all .2s; position: relative;
-    background: #fafafa;
+    text-align: center; cursor: pointer; transition: all .2s; position: relative; background: #fafafa;
   }
   .file-zone:hover, .file-zone.dragover { border-color: #6366f1; background: #f5f3ff; }
   .file-zone input[type=file] {
@@ -196,36 +212,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   .file-zone .fz-icon  { font-size: 36px; margin-bottom: 8px; }
   .file-zone .fz-label { font-size: 14px; color: #475569; font-weight: 600; }
   .file-zone .fz-sub   { font-size: 12px; color: #94a3b8; margin-top: 4px; }
-  .file-zone .fz-chosen { font-size: 13px; color: #6366f1; font-weight: 600; margin-top: 10px; display: none; background: #e0e7ff; padding: 6px 12px; border-radius: 6px; display: none; }
+  .fz-chosen { font-size: 13px; color: #6366f1; font-weight: 600; margin-top: 10px; background: #e0e7ff; padding: 6px 12px; border-radius: 6px; display: none; }
 
-  /* Format table */
   .hint { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin-bottom: 24px; font-size: 12px; color: #475569; }
   .hint strong { color: #1e293b; display: block; margin-bottom: 8px; }
   .format-table { width: 100%; border-collapse: collapse; font-size: 11px; }
-  .format-table th { background: #e2e8f0; padding: 5px 8px; text-align: center; font-weight: 700; color: #374151; }
-  .format-table td { padding: 4px 8px; border: 1px solid #e2e8f0; text-align: center; color: #475569; }
-  .format-table .cat-head { background: #6366f1; color: #fff; font-weight: 700; }
-  .format-table .sub-head { background: #e0e7ff; color: #4338ca; font-style: italic; }
-  .format-table .data-row { background: #fff; }
+  .format-table td { padding: 4px 6px; border: 1px solid #e2e8f0; text-align: center; }
+  .cat-head  { background: #6366f1; color: #fff; font-weight: 700; }
+  .sub-head  { background: #e0e7ff; color: #4338ca; font-style: italic; }
+  .data-row  { background: #fff; color: #475569; }
   .hint-note { margin-top: 8px; font-size: 11px; color: #94a3b8; }
 
-  /* Button */
-  .btn-submit {
-    width: 100%; padding: 13px; background: #6366f1; color: #fff;
-    border: none; border-radius: 8px; font-size: 15px; font-weight: 700;
-    cursor: pointer; transition: opacity .15s; margin-top: 8px;
-  }
+  .btn-submit { width: 100%; padding: 13px; background: #6366f1; color: #fff; border: none; border-radius: 8px; font-size: 15px; font-weight: 700; cursor: pointer; transition: opacity .15s; margin-top: 8px; }
   .btn-submit:hover    { opacity: .88; }
   .btn-submit:disabled { opacity: .5; cursor: default; }
 
-  /* Alerts */
   .alert { border-radius: 8px; padding: 14px 16px; margin-bottom: 20px; font-size: 13px; }
   .alert-error   { background: #fef2f2; border: 1px solid #fecaca; color: #dc2626; }
   .alert-success { background: #f0fdf4; border: 1px solid #bbf7d0; color: #15803d; }
   .alert ul { margin: 6px 0 0 16px; }
   .alert li { margin-bottom: 3px; }
 
-  /* Results */
   .result-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 20px; margin-top: 24px; }
   .result-box h3 { font-size: 14px; font-weight: 700; color: #1e293b; margin-bottom: 12px; }
   .result-meta { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
@@ -241,10 +248,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
   <div class="card-header">
     <h1>📥 FAQ Bulk Importer</h1>
-    <p>Upload an Excel file to import FAQs into any course and location</p>
+    <p>Upload an Excel 97-2003 (.xls) file — no composer required</p>
   </div>
 
   <div class="card-body">
+
+    <!-- ── One-time setup banner ── -->
+    <?php if ($libMissing): ?>
+    <div class="setup-banner">
+      <h3>⚙️ One-time setup — download 1 file</h3>
+      <ol>
+        <li>Open this URL in your browser:<br>
+          <a href="https://raw.githubusercontent.com/shuchkin/simplexls/master/src/SimpleXLS.php" target="_blank">
+            https://raw.githubusercontent.com/shuchkin/simplexls/master/src/SimpleXLS.php
+          </a>
+        </li>
+        <li>Save it as <code>SimpleXLS.php</code> in your project root (same folder as this file)</li>
+        <li>Refresh this page — setup banner will disappear ✅</li>
+      </ol>
+    </div>
+    <?php else: ?>
+    <div style="font-size:12px;color:#15803d;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:8px 12px;margin-bottom:20px;">
+      ✅ SimpleXLS ready
+    </div>
+    <?php endif; ?>
 
     <?php if (!empty($errors)): ?>
     <div class="alert alert-error">
@@ -277,7 +304,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     <!-- Format hint -->
     <div class="hint">
-      <strong>📋 Excel Format (Sheet1)</strong>
+      <strong>📋 Excel Format — Sheet 1</strong>
       <table class="format-table">
         <tr>
           <td class="cat-head" colspan="2">PROGRAM</td>
@@ -294,21 +321,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           <td class="sub-head">Question</td><td class="sub-head">Answer</td>
         </tr>
         <tr class="data-row">
-          <td>Q1...</td><td>A1...</td>
-          <td>Q1...</td><td>A1...</td>
-          <td>Q1...</td><td>A1...</td>
-          <td>Q1...</td><td>A1...</td>
-          <td>Q1...</td><td>A1...</td>
+          <td>Q1…</td><td>A1…</td><td>Q1…</td><td>A1…</td>
+          <td>Q1…</td><td>A1…</td><td>Q1…</td><td>A1…</td><td>Q1…</td><td>A1…</td>
         </tr>
         <tr class="data-row">
-          <td>Q2...</td><td>A2...</td>
-          <td>Q2...</td><td>A2...</td>
-          <td>Q2...</td><td>A2...</td>
-          <td>Q2...</td><td>A2...</td>
-          <td>Q2...</td><td>A2...</td>
+          <td>Q2…</td><td>A2…</td><td>Q2…</td><td>A2…</td>
+          <td>Q2…</td><td>A2…</td><td>Q2…</td><td>A2…</td><td>Q2…</td><td>A2…</td>
         </tr>
       </table>
-      <div class="hint-note">Max 10 rows per category. Commas inside cells are handled automatically.</div>
+      <div class="hint-note">Max 10 rows per category. Commas inside cells are fine.</div>
     </div>
 
     <!-- Form -->
@@ -339,32 +360,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       </div>
 
       <div class="field">
-        <label>Excel File (.xlsx)</label>
+        <label>Excel File (.xls)</label>
         <div class="file-zone" id="file-zone">
-          <input type="file" name="excel_file" accept=".xlsx" id="excel-input" required>
+          <input type="file" name="xls_file" accept=".xls" id="xls-input" required>
           <div class="fz-icon">📊</div>
           <div class="fz-label">Click to upload or drag & drop</div>
-          <div class="fz-sub">.xlsx files only</div>
+          <div class="fz-sub">.xls (Excel 97-2003) only</div>
           <div class="fz-chosen" id="file-chosen"></div>
         </div>
       </div>
 
-      <button type="submit" class="btn-submit" id="submit-btn">⬆️ Import FAQs</button>
+      <button type="submit" class="btn-submit" id="submit-btn" <?= $libMissing ? 'disabled title="Install SimpleXLS.php first"' : '' ?>>
+        ⬆️ Import FAQs
+      </button>
     </form>
 
   </div>
 </div>
 
 <script>
-  const input  = document.getElementById('excel-input');
+  const input  = document.getElementById('xls-input');
   const chosen = document.getElementById('file-chosen');
   const zone   = document.getElementById('file-zone');
   const btn    = document.getElementById('submit-btn');
 
   input.addEventListener('change', () => {
     if (input.files[0]) {
-      chosen.textContent    = '📎 ' + input.files[0].name;
-      chosen.style.display  = 'block';
+      chosen.textContent   = '📎 ' + input.files[0].name;
+      chosen.style.display = 'block';
     }
   });
 
