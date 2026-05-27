@@ -77,9 +77,14 @@ $fieldMeta = [
     'aitoolsdescription'     => ['label' => 'AI Tools Description',      'icon' => '💡', 'section' => 'AI & Technology'],
     'roadmapheader'          => ['label' => 'Roadmap Header',            'icon' => '🗺️', 'section' => 'Road Map'],
     'roadmapdesc'            => ['label' => 'Roadmap Description',       'icon' => '📍', 'section' => 'Road Map'],
+    'liveprojectssection'     => ['label' => 'Live Projects Section ID',  'icon' => '🚀', 'section' => 'Live Projects'],
+    'liveprojectsheading'     => ['label' => 'Live Projects Heading',     'icon' => '🚀', 'section' => 'Live Projects'],
+    'liveprojectsdescription' => ['label' => 'Live Projects Description', 'icon' => '📝', 'section' => 'Live Projects'],
     'casestudiesheading'     => ['label' => 'Case Studies Heading',      'icon' => '📊', 'section' => 'Case Studies'],
     'casestudeiessubheading' => ['label' => 'Case Studies Subheading',   'icon' => '📋', 'section' => 'Case Studies'],
     'peoplesliderdesc'       => ['label' => 'Success stories Subheading', 'icon' => '👥', 'section' => 'Success Stories'],
+    'insideda360heading'     => ['label' => 'Inside DA360 Heading',       'icon' => '🏛️', 'section' => 'Gallery'],
+    'insideda360subheading'  => ['label' => 'Inside DA360 Subheading',    'icon' => '📝', 'section' => 'Gallery'],
     'latestblogheading'      => ['label' => 'Latest Blog Heading',       'icon' => '✍️', 'section' => 'Content'],
     'feestructureheading'    => ['label' => 'Fee Structure Heading',    'icon' => '🎯', 'section' => 'BBA & MBA'],
     'feestructuresubheading' => ['label' => 'Fee Structure Subheading', 'icon' => '🔧', 'section' => 'BBA & MBA'],
@@ -96,6 +101,8 @@ $sectionAccents = [
     'Batches'          => '#14b8a6',
     'Learning Path'    => '#64748b',
     'Skills'           => '#ca8a04',
+    'Live Projects'    => '#3b82f6',
+    'Gallery'          => '#a855f7',
 ];
 
 try {

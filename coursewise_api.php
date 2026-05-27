@@ -200,10 +200,14 @@ try {
             $stmt2->execute([$courseId]);
             $csHead = $stmt2->fetch(PDO::FETCH_ASSOC);
 
-            $stmt2 = $db->prepare("SELECT section, heading, description FROM course_liveprojects_heading WHERE course_id = ? LIMIT 1");
-            $stmt2->execute([$courseId]);
-            $lpHead = $stmt2->fetch(PDO::FETCH_ASSOC);
-
+            // $stmt2 = $db->prepare("SELECT section, heading, description FROM course_liveprojects_heading WHERE course_id = ? LIMIT 1");
+            // $stmt2->execute([$courseId]);
+            // $lpHead = $stmt2->fetch(PDO::FETCH_ASSOC);
+            
+            $stmt2 = $db->prepare(" SELECT liveprojectssection, liveprojectsheading, liveprojectsdescription,casestudiesheading, casestudeiessubheading FROM course_content WHERE course_id = ? AND location_id = ? LIMIT 1 ");
+            $stmt2->execute([$courseId, $lid]);
+            $ccRow = $stmt2->fetch(PDO::FETCH_ASSOC) ?: [];
+            
             // ── Only location-specific heading data here ──────────────────
             $locations[$slug] = [
                 'caseStudies'  => [
@@ -211,9 +215,9 @@ try {
                     'subheading' => $csHead['subheading'] ?? '',
                 ],
                 'liveProjects' => [
-                    'section'     => $lpHead['section']     ?? '',
-                    'heading'     => $lpHead['heading']     ?? '',
-                    'description' => $lpHead['description'] ?? '',
+                    'section'     => $ccRow['liveprojectssection']     ?? '',
+                    'heading'     => $ccRow['liveprojectsheading']     ?? '',
+                    'description' => $ccRow['liveprojectsdescription'] ?? '',
                 ],
             ];
         }
@@ -770,7 +774,7 @@ try {
       <div class="section-body" id="sec-body-liveprojects">
 
       <!-- Live Projects Heading (location-specific) -->
-      <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;margin-bottom:18px;">
+      <!-- <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;margin-bottom:18px;">
         <div style="font-size:12px;font-weight:700;color:#6366f1;margin-bottom:12px;text-transform:uppercase;">📍 Section Heading (Location-specific)</div>
         <div class="field-row">
           <label>Section ID</label>
@@ -785,10 +789,10 @@ try {
           <textarea id="lp-description" rows="2"><?= htmlspecialchars($lpHead['description'] ?? '') ?></textarea>
         </div>
         <button class="btn btn-primary btn-sm" data-action="save-lp-heading">💾 Save Heading</button>
-      </div>
+      </div> -->
 
       <!-- Live Projects Items (course-wide) -->
-      <div style="font-size:12px;font-weight:700;color:#15803d;margin-bottom:12px;text-transform:uppercase;">🌐 Live Project Items (Course-wide)</div>
+      <!-- <div style="font-size:12px;font-weight:700;color:#15803d;margin-bottom:12px;text-transform:uppercase;">🌐 Live Project Items (Course-wide)</div> -->
       <div id="liveprojects-container">
 <?php foreach ($liveProjects as $lpi => $lp): ?>
         <div class="item-block" data-item-id="<?= (int)$lp['id'] ?>" data-item-index="<?= $lpi ?>" data-sort="<?= (int)$lp['sort_order'] ?>">
