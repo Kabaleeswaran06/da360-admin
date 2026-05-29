@@ -8,7 +8,7 @@ include __DIR__ . '/partials/sidebar.php';
 
 $db = getDB();
 $locations = $db->query(
-    "SELECT id, label FROM locations WHERE is_active = 1 ORDER BY sort_order"
+    "SELECT id, slug,label FROM locations WHERE is_active = 1 ORDER BY sort_order"
 )->fetchAll(PDO::FETCH_ASSOC);
 ?>
 
@@ -33,7 +33,7 @@ $locations = $db->query(
       <select id="location-select">
         <option value="">— Select Location —</option>
         <?php foreach ($locations as $l): ?>
-          <option value="<?= htmlspecialchars($l['label']) ?>">📍 <?= htmlspecialchars($l['label']) ?></option>
+          <option value="<?= htmlspecialchars($l['slug']) ?>">📍 <?= htmlspecialchars($l['label']) ?></option>
         <?php endforeach; ?>
       </select>
     </div>
