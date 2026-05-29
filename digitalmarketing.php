@@ -5,6 +5,11 @@ requireLogin();
 
 include __DIR__ . '/partials/header.php';
 include __DIR__ . '/partials/sidebar.php';
+
+$db = getDB();
+$locations = $db->query(
+    "SELECT id, label FROM locations WHERE is_active = 1 ORDER BY sort_order"
+)->fetchAll(PDO::FETCH_ASSOC);
 ?>
 
 <main class="main-content" data-page="digitalmarketing">
@@ -27,11 +32,9 @@ include __DIR__ . '/partials/sidebar.php';
       <label for="location-select">📍 Location</label>
       <select id="location-select">
         <option value="">— Select Location —</option>
-        <option value="global">🌐 Global</option>
-        <option value="bangalore">📍 Bangalore</option>
-        <option value="jayanagar">📍 Jayanagar</option>
-        <option value="jpnagar">📍 JP Nagar</option>
-        <option value="malleshwaram">📍 Malleshwaram</option>
+        <?php foreach ($locations as $l): ?>
+          <option value="<?= htmlspecialchars($l['label']) ?>">📍 <?= htmlspecialchars($l['label']) ?></option>
+        <?php endforeach; ?>
       </select>
     </div>
 
