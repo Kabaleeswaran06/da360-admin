@@ -39,7 +39,13 @@ if (!isAuthorized()) {
 }
 
 $action   = $_GET['action'] ?? '';
-$LOCS     = ['global', 'bangalore', 'jayanagar', 'jpnagar', 'malleshwaram'];
+$locations = $db->query(
+    "SELECT id, slug, label FROM locations WHERE is_active = 1 ORDER BY sort_order"
+)->fetchAll(PDO::FETCH_ASSOC);
+
+// Build dynamic $LOCS from slug column
+$LOCS = array_column($locations, 'slug');
+// $LOCS     = ['global', 'bangalore', 'jayanagar', 'jpnagar', 'malleshwaram'];
 
 // ── Default sections (auto-created on first load per location) ─────────────────
 $DEFAULT_SECTIONS = [
