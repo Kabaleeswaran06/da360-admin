@@ -39,6 +39,7 @@ if (!isAuthorized()) {
 }
 
 $action   = $_GET['action'] ?? '';
+$db = getDB();
 $locations = $db->query(
     "SELECT id, slug, label FROM locations WHERE is_active = 1 ORDER BY sort_order"
 )->fetchAll(PDO::FETCH_ASSOC);
@@ -46,7 +47,6 @@ $locations = $db->query(
 // Build dynamic $LOCS from slug column
 $LOCS = array_column($locations, 'slug');
 // $LOCS     = ['global', 'bangalore', 'jayanagar', 'jpnagar', 'malleshwaram'];
-
 // ── Default sections (auto-created on first load per location) ─────────────────
 $DEFAULT_SECTIONS = [
     ['section_id' => 'leadership-programs',    'section_title' => 'Digital Marketing Leadership Programs',        'component_type' => 'Leadership',    'sort_order' => 1],
