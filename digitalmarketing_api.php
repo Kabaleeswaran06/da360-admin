@@ -160,7 +160,14 @@ try {
             }
         }
 
-        echo json_encode(['success' => true, 'content' => $content, 'courseData' => $courseData, 'faqs' => $faqGroups]);
+        echo json_encode(['success' => true, 'content' => $content, 'courseData' => $courseData, 'faqs' => $faqGroups, 'schemas' => (function() use ($db, $location) {
+            $s = $db->prepare("SELECT schema_json FROM dm_schemas WHERE location = ? LIMIT 1");
+            $s->execute([$location]);
+            $r = $s->fetchColumn();
+            if (!$r) return [];
+            $d = json_decode($r, true);
+            return is_array($d) ? $d : [];
+        })()]);
         exit;
     }
 
@@ -261,6 +268,24 @@ try {
     .dm .saving { opacity:.5; pointer-events:none; }
     .dm .saved   { outline:2px solid #22c55e; }
 
+    /* ── Schema editor (tab 4) ── */
+    .dm .schema-editor { display:flex; flex-direction:column; gap:0; margin-top:4px; }
+    .dm .schema-toolbar { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; padding:12px 16px; background:#f9fafb; border:1px solid #e5e7eb; border-bottom:none; border-radius:10px 10px 0 0; }
+    .dm .schema-toolbar-left  { display:flex; align-items:center; gap:10px; }
+    .dm .schema-toolbar-right { display:flex; align-items:center; gap:10px; }
+    .dm .schema-meta { font-size:0.8rem; color:#9ca3af; }
+    .dm .schema-textarea { width:100%; min-height:560px; font-family:'Fira Code','Cascadia Code','Courier New',monospace; font-size:0.82rem; line-height:1.65; padding:16px; border:1px solid #e5e7eb; border-radius:0; background:#1e1e2e; color:#cdd6f4; resize:vertical; box-sizing:border-box; tab-size:2; outline:none; transition:border-color .15s; }
+    .dm .schema-textarea:focus { border-color:#6366f1; }
+    .dm .schema-footer { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; padding:12px 16px; background:#f9fafb; border:1px solid #e5e7eb; border-top:none; border-radius:0 0 10px 10px; }
+    .dm .schema-footer-left  { display:flex; align-items:center; gap:10px; }
+    .dm .schema-footer-right { display:flex; align-items:center; gap:10px; }
+    .dm .json-status { font-size:0.82rem; font-weight:600; padding:3px 10px; border-radius:99px; }
+    .dm .json-status.ok   { background:#dcfce7; color:#15803d; }
+    .dm .json-status.err  { background:#fef2f2; color:#dc2626; }
+    .dm .json-status.idle { background:#f3f4f6; color:#6b7280; }
+    .dm .btn-secondary { background:#f1f5f9; color:#475569; border:1px solid #e2e8f0; }
+    .dm .btn-sm { padding:6px 14px; font-size:0.82rem; border-radius:6px; }
+
     /* ── Toast ── */
     #dm-toast { position:fixed; bottom:28px; right:28px; z-index:9999; padding:12px 20px; border-radius:10px; font-size:14px; font-weight:600; background:#1e293b; color:#fff; box-shadow:0 4px 20px rgba(0,0,0,.2); opacity:0; transform:translateY(10px); transition:opacity .25s,transform .25s; pointer-events:none; }
     #dm-toast.show { opacity:1; transform:translateY(0); }
@@ -280,6 +305,7 @@ try {
     <button class="tab-btn active" data-tab="content">📝 Content</button>
     <button class="tab-btn"        data-tab="coursedata">📚 Course Data</button>
     <button class="tab-btn"        data-tab="faqs">❓ FAQs</button>
+    <button class="tab-btn"        data-tab="schema">🧩 Schema</button>
   </div>
 
   <!-- ══════════════════════════════════════════════════════════════════════
@@ -579,6 +605,58 @@ try {
     </div><!-- /.dm-fmr -->
   </div>
 
+  <!-- ══════════════════════════════════════════════════════════════════════
+       TAB 4 — SCHEMA (JSON-LD)
+  ═══════════════════════════════════════════════════════════════════════ -->
+  <div class="tab-pane" id="tab-pane-schema">
+<?php
+    // Load existing schema for this location
+    $schStmt = $db->prepare("SELECT schema_json, updated_at, updated_by FROM dm_schemas WHERE location = ? LIMIT 1");
+    $schStmt->execute([$location]);
+    $schRow     = $schStmt->fetch(PDO::FETCH_ASSOC);
+    $schJson    = '[]';
+    if ($schRow && !empty($schRow['schema_json'])) {
+        $decoded = json_decode($schRow['schema_json']);
+        if ($decoded !== null) {
+            $schJson = json_encode($decoded, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        }
+    }
+    $schMeta = $schRow
+        ? 'Last saved: ' . htmlspecialchars($schRow['updated_at']) . ' by ' . htmlspecialchars($schRow['updated_by'] ?? '—')
+        : 'No schema saved yet — paste your JSON-LD array below.';
+?>
+    <div class="schema-editor" style="margin-top:4px;">
+
+      <div class="schema-toolbar">
+        <div class="schema-toolbar-left">
+          <strong style="font-size:0.9rem">📋 JSON-LD Schema Array</strong>
+          <span class="json-status idle" id="dm-schema-status">—</span>
+        </div>
+        <div class="schema-toolbar-right">
+          <span class="schema-meta" id="dm-schema-meta"><?= $schMeta ?></span>
+          <button class="btn btn-secondary btn-sm" id="dm-schema-format-btn">⚡ Format</button>
+        </div>
+      </div>
+
+      <textarea
+        class="schema-textarea"
+        id="dm-schema-textarea"
+        spellcheck="false"
+        placeholder='[\n  {\n    "@context": "https://schema.org",\n    "@type": "Course",\n    ...\n  }\n]'
+      ><?= htmlspecialchars($schJson) ?></textarea>
+
+      <div class="schema-footer">
+        <div class="schema-footer-left">
+          <button class="btn btn-secondary btn-sm" id="dm-schema-count-btn">🔢 Count schemas</button>
+        </div>
+        <div class="schema-footer-right">
+          <button class="btn btn-primary" id="dm-schema-save-btn">💾 Save Schema</button>
+        </div>
+      </div>
+
+    </div><!-- /.schema-editor -->
+  </div><!-- /#tab-pane-schema -->
+
 </div><!-- /.dm -->
 <div id="dm-toast"></div>
 <?php
@@ -812,6 +890,9 @@ try {
 
     document.addEventListener('click', window._dmClickHandler, false);
 
+    // ── Init schema tab ───────────────────────────────────────────────────
+    dmInitSchemaTab(location);
+
 })();
 JSCODE;
 
@@ -995,6 +1076,141 @@ JSCODE;
         exit;
     }
 
+    // ══════════════════════════════════════════════════════════════════════════
+    // GET DM SCHEMA  — load schema JSON for admin editor
+    // GET ?action=get_dm_schema&location=bangalore
+    // ══════════════════════════════════════════════════════════════════════════
+    if ($action === 'get_dm_schema') {
+        $location = trim($_GET['location'] ?? '');
+        if (!in_array($location, $LOCS, true)) {
+            echo json_encode(['success' => false, 'message' => 'Invalid location']); exit;
+        }
+
+        $stmt = $db->prepare("
+            SELECT schema_json, updated_at, updated_by
+            FROM dm_schemas
+            WHERE location = ?
+            LIMIT 1
+        ");
+        $stmt->execute([$location]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        $json = '[]';
+        if ($row && !empty($row['schema_json'])) {
+            $decoded = json_decode($row['schema_json']);
+            if ($decoded !== null) {
+                $json = json_encode($decoded, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+            }
+        }
+
+        echo json_encode([
+            'success'     => true,
+            'schema_json' => $json,
+            'updated_at'  => $row['updated_at'] ?? null,
+            'updated_by'  => $row['updated_by'] ?? null,
+        ]);
+        exit;
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // SAVE DM SCHEMA
+    // POST ?action=save_dm_schema
+    // ══════════════════════════════════════════════════════════════════════════
+    if ($action === 'save_dm_schema' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+        $location = trim($_POST['location'] ?? '');
+        $rawJson  = trim($_POST['schema_json'] ?? '');
+
+        if (!in_array($location, $LOCS, true)) {
+            echo json_encode(['success' => false, 'message' => 'Invalid location']); exit;
+        }
+
+        $decoded = json_decode($rawJson, true);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            echo json_encode(['success' => false, 'message' => 'Invalid JSON: ' . json_last_error_msg()]); exit;
+        }
+        if (!is_array($decoded)) {
+            echo json_encode(['success' => false, 'message' => 'Schema must be a JSON array [ ... ]']); exit;
+        }
+
+        $cleanJson = json_encode($decoded, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        $updatedBy = $_SESSION['da360_user']['name']
+                  ?? $_SESSION['da360_user']['username']
+                  ?? 'unknown';
+
+        $stmt = $db->prepare("
+            INSERT INTO dm_schemas (location, schema_json, updated_at, updated_by)
+            VALUES (:location, :schema_json, NOW(), :updated_by)
+            ON DUPLICATE KEY UPDATE
+                schema_json = VALUES(schema_json),
+                updated_at  = NOW(),
+                updated_by  = VALUES(updated_by)
+        ");
+        $stmt->execute([
+            ':location'   => $location,
+            ':schema_json'=> $cleanJson,
+            ':updated_by' => $updatedBy,
+        ]);
+
+        // ── Trigger Next.js revalidation ──────────────────────────────────
+        $revalidateUrl = 'https://your-nextjs-site.com/api/revalidate'; // ← update
+        $secret        = 'your_strong_secret_here';                     // ← update
+        $ch = curl_init($revalidateUrl);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_POST           => true,
+            CURLOPT_POSTFIELDS     => json_encode(['tag' => 'dm-schemas']),
+            CURLOPT_HTTPHEADER     => [
+                'Content-Type: application/json',
+                'x-revalidate-secret: ' . $secret,
+            ],
+            CURLOPT_TIMEOUT => 10,
+        ]);
+        $curlError   = curl_error($ch);
+        $revalidated = !$curlError;
+        curl_close($ch);
+        // ─────────────────────────────────────────────────────────────────
+
+        echo json_encode([
+            'success'     => true,
+            'message'     => 'Schema saved successfully.',
+            'revalidated' => $revalidated,
+        ]);
+        exit;
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // GET DM SCHEMAS JSON  — for Next.js frontend (all locations)
+    // GET ?action=get_dm_schemas_json&api_key=XXX
+    // Returns: { success, schemas: { bangalore: [...], mysuru: [...], ... } }
+    // ══════════════════════════════════════════════════════════════════════════
+    if ($action === 'get_dm_schemas_json') {
+        $stmt = $db->prepare("
+            SELECT l.slug, ds.schema_json
+            FROM locations l
+            LEFT JOIN dm_schemas ds ON ds.location = l.slug
+            WHERE l.is_active = 1
+            ORDER BY l.sort_order, l.label
+        ");
+        $stmt->execute();
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $result = [];
+        foreach ($rows as $row) {
+            $schemas = [];
+            if (!empty($row['schema_json'])) {
+                $decoded = json_decode($row['schema_json'], true);
+                if (is_array($decoded)) $schemas = $decoded;
+            }
+            $result[$row['slug']] = $schemas;
+        }
+
+        echo json_encode(
+            ['success' => true, 'schemas' => $result],
+            JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
+        );
+        exit;
+    }
+
     echo json_encode(['success' => false, 'message' => 'Unknown action: ' . htmlspecialchars($action)]);
 
 } catch (Exception $e) {
@@ -1073,6 +1289,15 @@ CREATE TABLE dm_faqs (
   updated_at DATETIME,
   updated_by VARCHAR(100),
   INDEX (location)
+);
+
+CREATE TABLE dm_schemas (
+  id          INT AUTO_INCREMENT PRIMARY KEY,
+  location    VARCHAR(50)  NOT NULL,
+  schema_json LONGTEXT     NOT NULL DEFAULT '[]',
+  updated_at  DATETIME,
+  updated_by  VARCHAR(100),
+  UNIQUE KEY uq_location (location)
 );
 
 */

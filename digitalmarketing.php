@@ -91,7 +91,93 @@ $locations = $db->query(
   });
 })();
 
-// ── FAQ panel functions (called from onclick attrs in the returned HTML) ────
+// ── Schema tab functions (called after editor HTML is injected) ─────────────
+
+function dmInitSchemaTab(location) {
+    var textarea     = document.getElementById('dm-schema-textarea');
+    var statusEl     = document.getElementById('dm-schema-status');
+    var schemaTimer  = null;
+
+    function validateSchema(val) {
+        if (!val.trim()) {
+            statusEl.textContent = '—';
+            statusEl.className   = 'json-status idle';
+            return false;
+        }
+        try {
+            var parsed = JSON.parse(val);
+            if (!Array.isArray(parsed)) {
+                statusEl.textContent = '⚠ Must be an array [ ]';
+                statusEl.className   = 'json-status err';
+                return false;
+            }
+            statusEl.textContent = '✓ Valid JSON — ' + parsed.length + ' schema' + (parsed.length !== 1 ? 's' : '');
+            statusEl.className   = 'json-status ok';
+            return true;
+        } catch (e) {
+            statusEl.textContent = '✗ ' + e.message.split('\n')[0].substring(0, 60);
+            statusEl.className   = 'json-status err';
+            return false;
+        }
+    }
+
+    textarea.addEventListener('input', function () {
+        clearTimeout(schemaTimer);
+        schemaTimer = setTimeout(function () { validateSchema(textarea.value); }, 600);
+    });
+    validateSchema(textarea.value);
+
+    document.getElementById('dm-schema-format-btn').addEventListener('click', function () {
+        try {
+            textarea.value = JSON.stringify(JSON.parse(textarea.value), null, 2);
+            validateSchema(textarea.value);
+        } catch (e) {
+            alert('Cannot format — fix JSON errors first:\n' + e.message);
+        }
+    });
+
+    document.getElementById('dm-schema-count-btn').addEventListener('click', function () {
+        try {
+            var parsed = JSON.parse(textarea.value);
+            if (!Array.isArray(parsed)) { alert('Not an array.'); return; }
+            alert(parsed.length + ' schema object(s):\n' + parsed.map(function (s) { return s['@type'] || '?'; }).join(', '));
+        } catch (e) { alert('Invalid JSON.'); }
+    });
+
+    document.getElementById('dm-schema-save-btn').addEventListener('click', function () {
+        if (!validateSchema(textarea.value)) {
+            dmShowToast('❌ Fix JSON errors before saving.');
+            return;
+        }
+        var btn = document.getElementById('dm-schema-save-btn');
+        btn.disabled    = true;
+        btn.textContent = '⏳ Saving…';
+
+        var fd = new FormData();
+        fd.append('location',    location);
+        fd.append('schema_json', textarea.value);
+
+        fetch('/da360-admin/digitalmarketing_api.php?action=save_dm_schema', { method: 'POST', body: fd })
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+                btn.disabled    = false;
+                btn.textContent = '💾 Save Schema';
+                if (d.success) {
+                    dmShowToast('✅ Schema saved!');
+                    var meta = document.getElementById('dm-schema-meta');
+                    if (meta) meta.textContent = 'Last saved: ' + new Date().toLocaleString();
+                } else {
+                    dmShowToast('❌ ' + (d.message || 'Save failed.'));
+                }
+            })
+            .catch(function () {
+                btn.disabled    = false;
+                btn.textContent = '💾 Save Schema';
+                dmShowToast('❌ Network error.');
+            });
+    });
+}
+
 // Same pattern as faqs.php — defined at page level so they survive innerHTML injection.
 
 function dmShowToast(msg) {
