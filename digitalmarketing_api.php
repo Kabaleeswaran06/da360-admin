@@ -116,6 +116,8 @@ try {
             'guestfaculty'            => $row['guestfaculty']            ?? '',
             'communitymeetupslider'   => $row['communitymeetupslider']   ?? '',
             'lastestblog'             => $row['lastestblog']             ?? '',
+            'lastestblog'             => $row['lastestblog']             ?? '',
+            'insideda360heading'      => $row['insideda360heading']       ?? '',
         ];
 
         // Course Data
@@ -350,7 +352,11 @@ try {
           <textarea id="dm-guestfaculty" rows="2"><?= htmlspecialchars($content['guestfaculty'] ?? '') ?></textarea>
         </div>
         <div class="field-row">
-          <label>Community Meetup Slider</label>
+          <label>Inside DA360 Heading</label>
+          <textarea id="dm-insideda360heading" rows="3"><?= htmlspecialchars($content['insideda360heading'] ?? '') ?></textarea>
+        </div>
+        <div class="field-row">
+          <label>Inside DA360 Subheading</label>
           <textarea id="dm-communitymeetupslider" rows="3"><?= htmlspecialchars($content['communitymeetupslider'] ?? '') ?></textarea>
         </div>
 

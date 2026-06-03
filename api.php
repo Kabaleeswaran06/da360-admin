@@ -86,7 +86,7 @@ $fieldMeta = [
     'insideda360heading'     => ['label' => 'Inside DA360 Heading',       'icon' => '🏛️', 'section' => 'Gallery'],
     'insideda360subheading'  => ['label' => 'Inside DA360 Subheading',    'icon' => '📝', 'section' => 'Gallery'],
     'latestblogheading'      => ['label' => 'Latest Blog Heading',       'icon' => '✍️', 'section' => 'Content'],
-    'locationcity'      => ['label' => 'Location Heading',       'icon' => '✍️', 'section' => 'location'],
+    'locationcity'           => ['label' => 'Location Heading',           'icon' => '📍', 'section' => 'location'],
     'feestructureheading'    => ['label' => 'Fee Structure Heading',    'icon' => '🎯', 'section' => 'BBA & MBA'],
     'feestructuresubheading' => ['label' => 'Fee Structure Subheading', 'icon' => '🔧', 'section' => 'BBA & MBA'],
 ];
