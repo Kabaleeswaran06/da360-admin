@@ -222,6 +222,11 @@ try {
             <input type="text" class="ft-link-label" value="<?= htmlspecialchars($link['label']) ?>" placeholder="<?= htmlspecialchars($meta['placeholder_label']) ?>">
             <input type="url"  class="ft-link-url"   value="<?= htmlspecialchars($link['url']) ?>"   placeholder="<?= htmlspecialchars($meta['placeholder_url']) ?>">
           </div>
+          <div class="sort-wrap" style="display:flex;flex-direction:column;align-items:center;gap:2px;min-width:56px;">
+            <label style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.4px;margin:0;">Order</label>
+            <input type="number" class="ft-link-sort" value="<?= (int)$link['sort_order'] ?>" min="1" max="9999"
+              style="width:56px;padding:5px 6px;text-align:center;border:1.5px solid #cbd5e1;border-radius:6px;font-size:13px;font-weight:700;color:#6366f1;">
+          </div>
           <label class="toggle-active">
             <input type="checkbox" class="ft-link-active" <?= $link['is_active'] ? 'checked' : '' ?>> Active
           </label>
@@ -358,7 +363,13 @@ try {
       var label   = row.querySelector('.ft-link-label').value.trim();
       var url     = row.querySelector('.ft-link-url').value.trim();
       var active  = row.querySelector('.ft-link-active').checked ? 1 : 0;
-      var sort    = parseInt(row.dataset.sort, 10) || 1;
+
+      // ✅ Read from the visible input, fallback to data-sort
+      var sortInput = row.querySelector('.ft-link-sort');
+      var sort      = sortInput ? (parseInt(sortInput.value, 10) || 1) : (parseInt(row.dataset.sort, 10) || 1);
+
+      // ✅ Keep data-sort in sync so nextSort() stays accurate
+      row.dataset.sort = sort;
 
       row.classList.add('saving');
       post({ action: 'save_link', link_id: linkId, section: section, label: label, url: url, is_active: active, sort_order: sort }, function (success, d) {
@@ -395,14 +406,19 @@ try {
       div.dataset.section = section;
       div.dataset.sort    = sort;
       div.innerHTML =
-        '<div class="item-num">' + count + '</div>' +
-        '<div class="link-inputs">' +
-          '<input type="text" class="ft-link-label" placeholder="' + placeLbl + '">' +
-          '<input type="url"  class="ft-link-url"   placeholder="' + placeUrl + '">' +
-        '</div>' +
-        '<label class="toggle-active"><input type="checkbox" class="ft-link-active" checked> Active</label>' +
-        '<button class="btn btn-success btn-sm" data-action="save-link">💾</button>' +
-        '<button class="btn btn-danger btn-sm"  data-action="delete-link">🗑</button>';
+         '<div class="item-num">' + count + '</div>' +
+          '<div class="link-inputs">' +
+            '<input type="text" class="ft-link-label" placeholder="' + placeLbl + '">' +
+            '<input type="url"  class="ft-link-url"   placeholder="' + placeUrl + '">' +
+          '</div>' +
+          '<div class="sort-wrap" style="display:flex;flex-direction:column;align-items:center;gap:2px;min-width:56px;">' +
+            '<label style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.4px;margin:0;">Order</label>' +
+            '<input type="number" class="ft-link-sort" value="' + sort + '" min="1" max="9999" ' +
+              'style="width:56px;padding:5px 6px;text-align:center;border:1.5px solid #cbd5e1;border-radius:6px;font-size:13px;font-weight:700;color:#6366f1;">' +
+          '</div>' +
+          '<label class="toggle-active"><input type="checkbox" class="ft-link-active" checked> Active</label>' +
+          '<button class="btn btn-success btn-sm" data-action="save-link">💾</button>' +
+          '<button class="btn btn-danger btn-sm"  data-action="delete-link">🗑</button>';
       container.appendChild(div);
       div.querySelector('.ft-link-label').focus();
       return;
