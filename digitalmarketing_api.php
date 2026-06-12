@@ -116,7 +116,6 @@ try {
             'guestfaculty'            => $row['guestfaculty']            ?? '',
             'communitymeetupslider'   => $row['communitymeetupslider']   ?? '',
             'lastestblog'             => $row['lastestblog']             ?? '',
-            'lastestblog'             => $row['lastestblog']             ?? '',
             'insideda360heading'      => $row['insideda360heading']       ?? '',
         ];
 
@@ -719,7 +718,7 @@ try {
             fd.append('location', location);
             ['leadershipsubheading','postgraduationsubheading','certificationsubheading',
              'bannersubheading','successstoriesheading','successstoriessubheading',
-             'guestfaculty','communitymeetupslider','lastestblog'].forEach(function(k) {
+             'guestfaculty','communitymeetupslider','lastestblog','insideda360heading'].forEach(function(k) {
                 var el = document.getElementById('dm-' + k);
                 fd.append(k, el ? el.value.trim() : '');
             });
@@ -916,7 +915,7 @@ JSCODE;
 
         $fields = ['leadershipsubheading','postgraduationsubheading','certificationsubheading',
                    'bannersubheading','successstoriesheading','successstoriessubheading',
-                   'guestfaculty','communitymeetupslider','lastestblog'];
+                   'guestfaculty','communitymeetupslider','lastestblog','insideda360heading'];
         $values = [];
         foreach ($fields as $f) $values[$f] = trim($_POST[$f] ?? '');
 
@@ -1238,6 +1237,7 @@ CREATE TABLE dm_content (
   successstoriesheading     VARCHAR(500) NOT NULL DEFAULT '',
   successstoriessubheading  TEXT         NOT NULL DEFAULT '',
   guestfaculty              TEXT         NOT NULL DEFAULT '',
+  insideda360heading     TEXT         NOT NULL DEFAULT '',
   communitymeetupslider     TEXT         NOT NULL DEFAULT '',
   lastestblog               VARCHAR(500) NOT NULL DEFAULT '',
   updated_at                DATETIME,
