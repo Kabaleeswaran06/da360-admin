@@ -143,7 +143,6 @@ try {
             ];
         }
 
-        // FAQs
         // FAQs — grouped by label in the order the FAQTabs component expects
         $stmt = $db->prepare("SELECT label, question, answer FROM dm_faqs WHERE location = ? AND is_active = 1 ORDER BY sort_order");
         $stmt->execute([$location]);
@@ -290,6 +289,40 @@ try {
     /* ── Toast ── */
     #dm-toast { position:fixed; bottom:28px; right:28px; z-index:9999; padding:12px 20px; border-radius:10px; font-size:14px; font-weight:600; background:#1e293b; color:#fff; box-shadow:0 4px 20px rgba(0,0,0,.2); opacity:0; transform:translateY(10px); transition:opacity .25s,transform .25s; pointer-events:none; }
     #dm-toast.show { opacity:1; transform:translateY(0); }
+
+    /* ── Meta tab scoped styles ── */
+    .dm-meta *, .dm-meta *::before, .dm-meta *::after { box-sizing: border-box; }
+    .dm-meta { font-family: system-ui, sans-serif; color: #1e293b; }
+    .dm-meta-section { border: 1.5px solid #e2e8f0; border-radius: 10px; margin-bottom: 14px; overflow: hidden; }
+    .dm-meta-section-hdr { display: flex; align-items: center; gap: 10px; padding: 13px 18px; cursor: pointer; user-select: none; background: #f8fafc; border-left: 4px solid var(--sec-accent, #6366f1); transition: background .15s; }
+    .dm-meta-section-hdr:hover { background: #f1f5f9; }
+    .dm-meta-sec-icon  { font-size: 17px; flex-shrink: 0; }
+    .dm-meta-sec-title { font-size: 14px; font-weight: 700; color: #1e293b; flex: 1; }
+    .dm-meta-sec-arrow { font-size: 12px; color: #94a3b8; transition: transform .25s; transform: rotate(180deg); }
+    .dm-meta-section-body { padding: 18px; background: #fff; }
+    .dm-meta .field-row  { margin-bottom: 14px; }
+    .dm-meta .field-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+    .dm-meta .field-3col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+    .dm-meta label { display: block; font-size: 11px; font-weight: 700; color: #64748b; margin-bottom: 4px; text-transform: uppercase; letter-spacing: .5px; }
+    .dm-meta input[type=text], .dm-meta textarea, .dm-meta select { width: 100%; padding: 8px 12px; border: 1.5px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #1e293b; background: #fff; transition: border-color .15s; font-family: inherit; }
+    .dm-meta input[type=text]:focus, .dm-meta textarea:focus, .dm-meta select:focus { border-color: #6366f1; outline: none; }
+    .dm-meta textarea { resize: vertical; min-height: 68px; }
+    .dm-meta-charcount { font-size: 11px; color: #94a3b8; text-align: right; margin-top: 3px; }
+    .dm-meta-charcount.warn   { color: #f59e0b; }
+    .dm-meta-charcount.danger { color: #ef4444; font-weight: 700; }
+    .dm-kw-wrap { border: 1.5px solid #cbd5e1; border-radius: 6px; padding: 6px 8px; background: #fff; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; min-height: 42px; transition: border-color .15s; }
+    .dm-kw-wrap:focus-within { border-color: #6366f1; }
+    .dm-kw-chip { display: inline-flex; align-items: center; gap: 4px; background: #ede9fe; color: #5b21b6; border-radius: 20px; padding: 3px 10px; font-size: 12px; font-weight: 600; }
+    .dm-kw-del  { border: none; background: none; color: #7c3aed; cursor: pointer; font-size: 11px; padding: 0; line-height: 1; }
+    .dm-kw-input-el { border: none; outline: none; font-size: 13px; color: #1e293b; min-width: 140px; flex: 1; padding: 2px 4px; background: transparent; }
+    .dm-kw-hint { font-size: 11px; color: #94a3b8; margin-top: 4px; }
+    .dm-meta-status-badge { font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 99px; }
+    .dm-meta-status-badge.ok   { background: #dcfce7; color: #15803d; }
+    .dm-meta-status-badge.err  { background: #fef2f2; color: #dc2626; }
+    .dm-meta-status-badge.idle { background: #f3f4f6; color: #6b7280; }
+    .dm-meta-toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; padding: 12px 0 16px; }
+    .dm-meta-toolbar-left  { display: flex; align-items: center; gap: 10px; }
+    .dm-meta-toolbar-right { font-size: 11px; color: #94a3b8; }
 </style>
 
 <div class="dm" id="dm-root" data-location="<?= htmlspecialchars($location) ?>">
@@ -307,6 +340,7 @@ try {
     <button class="tab-btn"        data-tab="coursedata">📚 Course Data</button>
     <button class="tab-btn"        data-tab="faqs">❓ FAQs</button>
     <button class="tab-btn"        data-tab="schema">🧩 Schema</button>
+    <button class="tab-btn"        data-tab="metatags">🏷️ Meta Tags</button>
   </div>
 
   <!-- ══════════════════════════════════════════════════════════════════════
@@ -662,6 +696,166 @@ try {
     </div><!-- /.schema-editor -->
   </div><!-- /#tab-pane-schema -->
 
+  <!-- ══════════════════════════════════════════════════════════════════════
+       TAB 5 — META TAGS
+  ═══════════════════════════════════════════════════════════════════════ -->
+  <div class="tab-pane" id="tab-pane-metatags">
+  <div class="dm-meta">
+
+    <div class="dm-meta-toolbar">
+      <div class="dm-meta-toolbar-left">
+        <strong style="font-size:.9rem">🏷️ Meta Tags — <?= htmlspecialchars($locLabel) ?></strong>
+        <span class="dm-meta-status-badge idle" id="dm-meta-status">—</span>
+      </div>
+      <div class="dm-meta-toolbar-right" id="dm-meta-savedinfo"></div>
+    </div>
+
+    <!-- ── 1. Basic SEO ── -->
+    <div class="dm-meta-section" style="--sec-accent:#6366f1">
+      <div class="dm-meta-section-hdr">
+        <span class="dm-meta-sec-icon">📝</span>
+        <span class="dm-meta-sec-title">Basic SEO</span>
+        <span class="dm-meta-sec-arrow">▼</span>
+      </div>
+      <div class="dm-meta-section-body">
+
+        <div class="field-row">
+          <label>Page Title <span style="color:#6366f1">(shown in browser tab &amp; Google)</span></label>
+          <input type="text" id="dm-meta-title" placeholder="Digital Marketing Course in <?= htmlspecialchars($locLabel) ?> | DA360">
+          <div class="dm-meta-charcount"><span id="dm-meta-title-cnt">0</span> / 60 chars</div>
+        </div>
+
+        <div class="field-row">
+          <label>Meta Description</label>
+          <textarea id="dm-meta-description" rows="3" placeholder="Learn digital marketing with expert mentors…"></textarea>
+          <div class="dm-meta-charcount"><span id="dm-meta-desc-cnt">0</span> / 160 chars</div>
+        </div>
+
+        <div class="field-row">
+          <label>Keywords <span style="color:#94a3b8;font-weight:400;text-transform:none">(press Enter or comma to add)</span></label>
+          <div class="dm-kw-wrap">
+            <div id="dm-meta-kw-chips" style="display:contents"></div>
+            <input type="text" id="dm-meta-kw-input" class="dm-kw-input-el" placeholder="Add keyword…">
+          </div>
+          <div class="dm-kw-hint">Each keyword is a separate chip. Click ✕ to remove.</div>
+        </div>
+
+        <div class="field-2col">
+          <div class="field-row">
+            <label>Canonical URL</label>
+            <input type="text" id="dm-meta-canonical" placeholder="https://www.digitalacademy360.com/digital-marketing-courses-<?= htmlspecialchars($location) ?>">
+          </div>
+          <div class="field-row">
+            <label>Robots</label>
+            <input type="text" id="dm-meta-robots" placeholder="index, follow, max-snippet:-1, …">
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ── 2. Open Graph ── -->
+    <div class="dm-meta-section" style="--sec-accent:#2563eb">
+      <div class="dm-meta-section-hdr">
+        <span class="dm-meta-sec-icon">📘</span>
+        <span class="dm-meta-sec-title">Open Graph (Facebook / LinkedIn)</span>
+        <span class="dm-meta-sec-arrow">▼</span>
+      </div>
+      <div class="dm-meta-section-body">
+
+        <div class="field-row">
+          <label>OG Title <span style="color:#94a3b8;font-weight:400;text-transform:none">(leave blank to inherit Page Title)</span></label>
+          <input type="text" id="dm-meta-og_title" placeholder="Inherits from Page Title if empty">
+          <div class="dm-meta-charcount"><span id="dm-meta-og-title-cnt">0</span> / 60 chars</div>
+        </div>
+
+        <div class="field-row">
+          <label>OG Description <span style="color:#94a3b8;font-weight:400;text-transform:none">(leave blank to inherit Meta Description)</span></label>
+          <textarea id="dm-meta-og_description" rows="3" placeholder="Inherits from Meta Description if empty"></textarea>
+          <div class="dm-meta-charcount"><span id="dm-meta-og-desc-cnt">0</span> / 160 chars</div>
+        </div>
+
+        <div class="field-2col">
+          <div class="field-row">
+            <label>OG URL</label>
+            <input type="text" id="dm-meta-og_url" placeholder="https://www.digitalacademy360.com/…">
+          </div>
+          <div class="field-row">
+            <label>OG Image URL</label>
+            <input type="text" id="dm-meta-og_image" placeholder="/images/digital-academy-360-og.jpg">
+          </div>
+        </div>
+
+        <div class="field-3col">
+          <div class="field-row">
+            <label>Site Name</label>
+            <input type="text" id="dm-meta-og_site_name" placeholder="Digital Academy 360">
+          </div>
+          <div class="field-row">
+            <label>OG Type</label>
+            <select id="dm-meta-og_type">
+              <option value="website">website</option>
+              <option value="article">article</option>
+              <option value="profile">profile</option>
+            </select>
+          </div>
+          <div class="field-row">
+            <label>OG Locale</label>
+            <input type="text" id="dm-meta-og_locale" placeholder="en_US">
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ── 3. Twitter / X ── -->
+    <div class="dm-meta-section" style="--sec-accent:#0ea5e9">
+      <div class="dm-meta-section-hdr">
+        <span class="dm-meta-sec-icon">𝕏</span>
+        <span class="dm-meta-sec-title">Twitter / X Card</span>
+        <span class="dm-meta-sec-arrow">▼</span>
+      </div>
+      <div class="dm-meta-section-body">
+
+        <div class="field-row">
+          <label>Twitter Card Type</label>
+          <select id="dm-meta-twitter_card">
+            <option value="summary_large_image">summary_large_image</option>
+            <option value="summary">summary</option>
+            <option value="app">app</option>
+            <option value="player">player</option>
+          </select>
+        </div>
+
+        <div class="field-row">
+          <label>Twitter Title <span style="color:#94a3b8;font-weight:400;text-transform:none">(leave blank to inherit)</span></label>
+          <input type="text" id="dm-meta-twitter_title" placeholder="Inherits from Page Title if empty">
+          <div class="dm-meta-charcount"><span id="dm-meta-tw-title-cnt">0</span> / 60 chars</div>
+        </div>
+
+        <div class="field-row">
+          <label>Twitter Description <span style="color:#94a3b8;font-weight:400;text-transform:none">(leave blank to inherit)</span></label>
+          <textarea id="dm-meta-twitter_description" rows="3" placeholder="Inherits from Meta Description if empty"></textarea>
+          <div class="dm-meta-charcount"><span id="dm-meta-tw-desc-cnt">0</span> / 160 chars</div>
+        </div>
+
+        <div class="field-row">
+          <label>Twitter Image URL</label>
+          <input type="text" id="dm-meta-twitter_image" placeholder="/images/digital-academy-360-og.jpg">
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ── Save bar ── -->
+    <div style="display:flex;align-items:center;justify-content:flex-end;padding:10px 0 4px;gap:12px;">
+      <span style="font-size:12px;color:#94a3b8">Changes are location-specific and saved to <code>dm_metatags</code>.</span>
+      <button class="btn btn-primary" id="dm-meta-save-btn">💾 Save Meta Tags</button>
+    </div>
+
+  </div><!-- /.dm-meta -->
+  </div><!-- /#tab-pane-metatags -->
+
 </div><!-- /.dm -->
 <div id="dm-toast"></div>
 <?php
@@ -897,6 +1091,168 @@ try {
 
     // ── Init schema tab ───────────────────────────────────────────────────
     dmInitSchemaTab(location);
+
+    // ── Meta Tags tab: accordion toggles ─────────────────────────────────
+    document.querySelectorAll('.dm-meta-section-hdr').forEach(function (hdr) {
+        hdr.addEventListener('click', function () {
+            var body  = this.nextElementSibling;
+            var arrow = this.querySelector('.dm-meta-sec-arrow');
+            var isOpen = body.style.display !== 'none';
+            body.style.display  = isOpen ? 'none' : 'block';
+            if (arrow) arrow.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(180deg)';
+        });
+    });
+
+    // ── Meta Tags tab: char counters ──────────────────────────────────────
+    function dmMetaAttachCounter(inputId, counterId, warn, danger) {
+        var el  = document.getElementById(inputId);
+        var cnt = document.getElementById(counterId);
+        if (!el || !cnt) return;
+        function upd() {
+            var n = el.value.length;
+            cnt.textContent = n;
+            cnt.parentElement.className = 'dm-meta-charcount' +
+                (n > danger ? ' danger' : n > warn ? ' warn' : '');
+        }
+        el.addEventListener('input', upd); upd();
+    }
+    dmMetaAttachCounter('dm-meta-title',               'dm-meta-title-cnt',     55, 60);
+    dmMetaAttachCounter('dm-meta-description',         'dm-meta-desc-cnt',     140, 160);
+    dmMetaAttachCounter('dm-meta-og_title',            'dm-meta-og-title-cnt',  55, 60);
+    dmMetaAttachCounter('dm-meta-og_description',      'dm-meta-og-desc-cnt',  140, 160);
+    dmMetaAttachCounter('dm-meta-twitter_title',       'dm-meta-tw-title-cnt',  55, 60);
+    dmMetaAttachCounter('dm-meta-twitter_description', 'dm-meta-tw-desc-cnt',  140, 160);
+
+    // ── Meta Tags tab: keyword chips ──────────────────────────────────────
+    function dmMetaEscHtml(s) {
+        return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+    function dmMetaRenderKeywords(arr) {
+        var wrap = document.getElementById('dm-meta-kw-chips');
+        if (!wrap) return;
+        wrap.innerHTML = '';
+        (arr || []).forEach(function (kw) {
+            if (!kw) return;
+            var chip = document.createElement('span');
+            chip.className = 'dm-kw-chip';
+            chip.innerHTML = '<span class="dm-kw-text">' + dmMetaEscHtml(kw) + '</span>'
+                           + '<button class="dm-kw-del" title="Remove">✕</button>';
+            chip.querySelector('.dm-kw-del').addEventListener('click', function () { chip.remove(); });
+            wrap.appendChild(chip);
+        });
+    }
+    function dmMetaGetKeywords() {
+        return Array.from(document.querySelectorAll('#dm-meta-kw-chips .dm-kw-text'))
+            .map(function (c) { return c.textContent.trim(); }).filter(Boolean);
+    }
+    var kwInput = document.getElementById('dm-meta-kw-input');
+    if (kwInput) {
+        kwInput.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter' || e.key === ',') {
+                e.preventDefault();
+                var v = this.value.replace(/,/g, '').trim();
+                if (v) dmMetaRenderKeywords(dmMetaGetKeywords().concat([v]));
+                this.value = '';
+            }
+        });
+    }
+
+    // ── Meta Tags tab: status badge ───────────────────────────────────────
+    function dmMetaSetStatus(msg, type) {
+        var el = document.getElementById('dm-meta-status');
+        if (!el) return;
+        el.textContent = msg;
+        el.className = 'dm-meta-status-badge ' + (type || 'idle');
+    }
+    function dmMetaSetVal(id, v) { var el = document.getElementById(id); if (el) el.value = v || ''; }
+    function dmMetaGetVal(id)    { var el = document.getElementById(id); return el ? el.value.trim() : ''; }
+
+    // ── Meta Tags tab: load saved data ────────────────────────────────────
+    dmMetaSetStatus('Loading…', 'idle');
+    fetch('/da360-admin/digitalmarketing_api.php?action=get_dm_metatags_html&location=' + encodeURIComponent(location))
+        .then(function (r) { return r.json(); })
+        .then(function (res) {
+            if (!res.success) { dmMetaSetStatus('Load failed', 'err'); return; }
+            var d = res.data;
+            dmMetaSetVal('dm-meta-title',               d.title);
+            dmMetaSetVal('dm-meta-description',         d.description);
+            dmMetaSetVal('dm-meta-robots',              d.robots);
+            dmMetaSetVal('dm-meta-canonical',           d.canonical);
+            dmMetaSetVal('dm-meta-og_title',            d.og_title);
+            dmMetaSetVal('dm-meta-og_description',      d.og_description);
+            dmMetaSetVal('dm-meta-og_url',              d.og_url);
+            dmMetaSetVal('dm-meta-og_site_name',        d.og_site_name);
+            dmMetaSetVal('dm-meta-og_type',             d.og_type);
+            dmMetaSetVal('dm-meta-og_locale',           d.og_locale);
+            dmMetaSetVal('dm-meta-og_image',            d.og_image);
+            dmMetaSetVal('dm-meta-twitter_card',        d.twitter_card);
+            dmMetaSetVal('dm-meta-twitter_title',       d.twitter_title);
+            dmMetaSetVal('dm-meta-twitter_description', d.twitter_description);
+            dmMetaSetVal('dm-meta-twitter_image',       d.twitter_image);
+            var kws = []; try { kws = JSON.parse(d.keywords || '[]'); } catch(e) {}
+            dmMetaRenderKeywords(kws);
+            ['dm-meta-title','dm-meta-description','dm-meta-og_title',
+             'dm-meta-og_description','dm-meta-twitter_title','dm-meta-twitter_description'
+            ].forEach(function (id) {
+                var el = document.getElementById(id);
+                if (el) el.dispatchEvent(new Event('input'));
+            });
+            var metaEl = document.getElementById('dm-meta-savedinfo');
+            if (metaEl) metaEl.textContent = d.updated_at
+                ? 'Last saved: ' + d.updated_at + (d.updated_by ? ' by ' + d.updated_by : '')
+                : 'No data saved yet for this location.';
+            dmMetaSetStatus('Loaded', 'ok');
+        })
+        .catch(function () { dmMetaSetStatus('Network error', 'err'); });
+
+    // ── Meta Tags tab: save ───────────────────────────────────────────────
+    var dmMetaSaveBtn = document.getElementById('dm-meta-save-btn');
+    if (dmMetaSaveBtn) {
+        dmMetaSaveBtn.addEventListener('click', function () {
+            var fd = new FormData();
+            fd.append('location',            location);
+            fd.append('title',               dmMetaGetVal('dm-meta-title'));
+            fd.append('description',         dmMetaGetVal('dm-meta-description'));
+            fd.append('keywords',            JSON.stringify(dmMetaGetKeywords()));
+            fd.append('robots',              dmMetaGetVal('dm-meta-robots'));
+            fd.append('canonical',           dmMetaGetVal('dm-meta-canonical'));
+            fd.append('og_title',            dmMetaGetVal('dm-meta-og_title'));
+            fd.append('og_description',      dmMetaGetVal('dm-meta-og_description'));
+            fd.append('og_url',              dmMetaGetVal('dm-meta-og_url'));
+            fd.append('og_site_name',        dmMetaGetVal('dm-meta-og_site_name'));
+            fd.append('og_type',             dmMetaGetVal('dm-meta-og_type'));
+            fd.append('og_locale',           dmMetaGetVal('dm-meta-og_locale'));
+            fd.append('og_image',            dmMetaGetVal('dm-meta-og_image'));
+            fd.append('twitter_card',        dmMetaGetVal('dm-meta-twitter_card'));
+            fd.append('twitter_title',       dmMetaGetVal('dm-meta-twitter_title'));
+            fd.append('twitter_description', dmMetaGetVal('dm-meta-twitter_description'));
+            fd.append('twitter_image',       dmMetaGetVal('dm-meta-twitter_image'));
+            dmMetaSaveBtn.disabled = true;
+            dmMetaSetStatus('Saving…', 'idle');
+            fetch('/da360-admin/digitalmarketing_api.php?action=save_dm_metatags', { method: 'POST', body: fd })
+                .then(function (r) { return r.json(); })
+                .then(function (res) {
+                    dmMetaSaveBtn.disabled = false;
+                    if (res.success) {
+                        dmMetaSetStatus('Saved ✓', 'ok');
+                        showToast('✅ Meta tags saved!');
+                        var metaEl = document.getElementById('dm-meta-savedinfo');
+                        if (metaEl) metaEl.textContent = 'Just saved by you.';
+                    } else {
+                        dmMetaSetStatus('Error', 'err');
+                        showToast('❌ ' + (res.message || 'Save failed'));
+                    }
+                })
+                .catch(function () {
+                    dmMetaSaveBtn.disabled = false;
+                    dmMetaSetStatus('Network error', 'err');
+                    showToast('❌ Network error');
+                });
+        });
+    }
+
+    // ── Init meta tags tab (external fn, optional) ────────────────────────
+    if (typeof dmInitMetaTab === 'function') dmInitMetaTab(location);
 
 })();
 JSCODE;
@@ -1216,94 +1572,185 @@ JSCODE;
         exit;
     }
 
+    // ══════════════════════════════════════════════════════════════════════════
+    // GET DM METATAGS HTML — loads meta-tag data for admin UI
+    // GET ?action=get_dm_metatags_html&location=bangalore
+    // ══════════════════════════════════════════════════════════════════════════
+    if ($action === 'get_dm_metatags_html') {
+        $location = trim($_GET['location'] ?? '');
+        if (!in_array($location, $LOCS, true)) {
+            echo json_encode(['success' => false, 'message' => 'Invalid location']); exit;
+        }
+
+        $stmt = $db->prepare("SELECT * FROM dm_metatags WHERE location = ? LIMIT 1");
+        $stmt->execute([$location]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+
+        echo json_encode(['success' => true, 'data' => [
+            'title'               => $row['title']               ?? '',
+            'description'         => $row['description']         ?? '',
+            'keywords'            => $row['keywords']            ?? '[]',
+            'robots'              => $row['robots']              ?? 'index, follow, max-snippet:-1, max-video-preview:-1, max-image-preview:large',
+            'canonical'           => $row['canonical_url']       ?? '',
+            'og_title'            => $row['og_title']            ?? '',
+            'og_description'      => $row['og_description']      ?? '',
+            'og_url'              => $row['og_url']              ?? '',
+            'og_site_name'        => $row['og_site_name']        ?? 'Digital Academy 360',
+            'og_type'             => $row['og_type']             ?? 'website',
+            'og_locale'           => $row['og_locale']           ?? 'en_US',
+            'og_image'            => $row['og_image']            ?? '/images/digital-academy-360-og.jpg',
+            'twitter_card'        => $row['twitter_card']        ?? 'summary_large_image',
+            'twitter_title'       => $row['twitter_title']       ?? '',
+            'twitter_description' => $row['twitter_description'] ?? '',
+            'twitter_image'       => $row['twitter_image']       ?? '/images/digital-academy-360-og.jpg',
+            'updated_at'          => $row['updated_at']          ?? null,
+            'updated_by'          => $row['updated_by']          ?? null,
+        ]]);
+        exit;
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // SAVE DM METATAGS
+    // POST ?action=save_dm_metatags
+    // ══════════════════════════════════════════════════════════════════════════
+    if ($action === 'save_dm_metatags' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+        $location = trim($_POST['location'] ?? '');
+        if (!in_array($location, $LOCS, true)) {
+            echo json_encode(['success' => false, 'message' => 'Invalid location']); exit;
+        }
+
+        $keywordsRaw = $_POST['keywords'] ?? '[]';
+        $keywordsArr = json_decode($keywordsRaw, true);
+        if (!is_array($keywordsArr)) $keywordsArr = [];
+        $keywordsJson = json_encode(array_values(array_filter(array_map('trim', $keywordsArr))));
+
+        $updatedBy = $_SESSION['da360_user']['name']
+                  ?? $_SESSION['da360_user']['username']
+                  ?? 'unknown';
+
+        $stmt = $db->prepare("
+            INSERT INTO dm_metatags (
+                location,
+                title, description, keywords, robots, canonical_url,
+                og_title, og_description, og_url, og_site_name, og_type, og_locale, og_image,
+                twitter_card, twitter_title, twitter_description, twitter_image,
+                updated_at, updated_by
+            ) VALUES (
+                :location,
+                :title, :description, :keywords, :robots, :canonical_url,
+                :og_title, :og_description, :og_url, :og_site_name, :og_type, :og_locale, :og_image,
+                :twitter_card, :twitter_title, :twitter_description, :twitter_image,
+                NOW(), :updated_by
+            )
+            ON DUPLICATE KEY UPDATE
+                title               = VALUES(title),
+                description         = VALUES(description),
+                keywords            = VALUES(keywords),
+                robots              = VALUES(robots),
+                canonical_url       = VALUES(canonical_url),
+                og_title            = VALUES(og_title),
+                og_description      = VALUES(og_description),
+                og_url              = VALUES(og_url),
+                og_site_name        = VALUES(og_site_name),
+                og_type             = VALUES(og_type),
+                og_locale           = VALUES(og_locale),
+                og_image            = VALUES(og_image),
+                twitter_card        = VALUES(twitter_card),
+                twitter_title       = VALUES(twitter_title),
+                twitter_description = VALUES(twitter_description),
+                twitter_image       = VALUES(twitter_image),
+                updated_at          = NOW(),
+                updated_by          = VALUES(updated_by)
+        ");
+
+        $stmt->execute([
+            ':location'           => $location,
+            ':title'              => trim($_POST['title']               ?? ''),
+            ':description'        => trim($_POST['description']         ?? ''),
+            ':keywords'           => $keywordsJson,
+            ':robots'             => trim($_POST['robots']              ?? ''),
+            ':canonical_url'      => trim($_POST['canonical']           ?? ''),
+            ':og_title'           => trim($_POST['og_title']            ?? ''),
+            ':og_description'     => trim($_POST['og_description']      ?? ''),
+            ':og_url'             => trim($_POST['og_url']              ?? ''),
+            ':og_site_name'       => trim($_POST['og_site_name']        ?? 'Digital Academy 360'),
+            ':og_type'            => trim($_POST['og_type']             ?? 'website'),
+            ':og_locale'          => trim($_POST['og_locale']           ?? 'en_US'),
+            ':og_image'           => trim($_POST['og_image']            ?? ''),
+            ':twitter_card'       => trim($_POST['twitter_card']        ?? 'summary_large_image'),
+            ':twitter_title'      => trim($_POST['twitter_title']       ?? ''),
+            ':twitter_description'=> trim($_POST['twitter_description'] ?? ''),
+            ':twitter_image'      => trim($_POST['twitter_image']       ?? ''),
+            ':updated_by'         => $updatedBy,
+        ]);
+
+        echo json_encode(['success' => true, 'message' => 'Meta tags saved successfully.']);
+        exit;
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // GET DM METATAGS JSON — for Next.js frontend (all active locations)
+    // GET ?action=get_dm_metatags_json&api_key=XXX
+    // Returns: { success, metatags: { bangalore: {...}, global: {...}, ... } }
+    // ══════════════════════════════════════════════════════════════════════════
+    if ($action === 'get_dm_metatags_json') {
+        $stmt = $db->prepare("
+            SELECT l.slug, m.*
+            FROM locations l
+            LEFT JOIN dm_metatags m ON m.location = l.slug
+            WHERE l.is_active = 1
+            ORDER BY l.sort_order, l.label
+        ");
+        $stmt->execute();
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $result = [];
+        foreach ($rows as $row) {
+            $slug        = $row['slug'];
+            $title       = $row['title']       ?? '';
+            $description = $row['description'] ?? '';
+
+            $keywords = [];
+            if (!empty($row['keywords'])) {
+                $decoded = json_decode($row['keywords'], true);
+                if (is_array($decoded)) $keywords = $decoded;
+            }
+
+            $result[$slug] = [
+                'title'       => $title,
+                'description' => $description,
+                'keywords'    => $keywords,
+                'robots'      => $row['robots'] ?? 'index, follow, max-snippet:-1, max-video-preview:-1, max-image-preview:large',
+                'alternates'  => [
+                    'canonical' => $row['canonical_url'] ?? '',
+                ],
+                'openGraph'   => [
+                    'title'       => !empty($row['og_title'])       ? $row['og_title']       : $title,
+                    'description' => !empty($row['og_description'])  ? $row['og_description'] : $description,
+                    'url'         => $row['og_url']       ?? '',
+                    'siteName'    => $row['og_site_name']  ?? 'Digital Academy 360',
+                    'locale'      => $row['og_locale']     ?? 'en_US',
+                    'type'        => $row['og_type']       ?? 'website',
+                    'images'      => [ !empty($row['og_image']) ? $row['og_image'] : '/images/digital-academy-360-og.jpg' ],
+                ],
+                'twitter'     => [
+                    'card'        => $row['twitter_card']        ?? 'summary_large_image',
+                    'title'       => !empty($row['twitter_title'])       ? $row['twitter_title']       : $title,
+                    'description' => !empty($row['twitter_description']) ? $row['twitter_description'] : $description,
+                    'images'      => [ !empty($row['twitter_image']) ? $row['twitter_image'] : '/images/digital-academy-360-og.jpg' ],
+                ],
+            ];
+        }
+
+        echo json_encode(
+            ['success' => true, 'metatags' => $result],
+            JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
+        );
+        exit;
+    }
+
     echo json_encode(['success' => false, 'message' => 'Unknown action: ' . htmlspecialchars($action)]);
 
 } catch (Exception $e) {
     echo json_encode(['success' => false, 'message' => $e->getMessage()]);
 }
-
-/*
-══════════════════════════════════════════════════════════════════════════════
-SQL MIGRATION — run once
-══════════════════════════════════════════════════════════════════════════════
-
-CREATE TABLE dm_content (
-  id                        INT AUTO_INCREMENT PRIMARY KEY,
-  location                  VARCHAR(50)  NOT NULL,
-  leadershipsubheading      TEXT         NOT NULL DEFAULT '',
-  postgraduationsubheading  TEXT         NOT NULL DEFAULT '',
-  certificationsubheading   TEXT         NOT NULL DEFAULT '',
-  bannersubheading          TEXT         NOT NULL DEFAULT '',
-  successstoriesheading     VARCHAR(500) NOT NULL DEFAULT '',
-  successstoriessubheading  TEXT         NOT NULL DEFAULT '',
-  guestfaculty              TEXT         NOT NULL DEFAULT '',
-  insideda360heading     TEXT         NOT NULL DEFAULT '',
-  communitymeetupslider     TEXT         NOT NULL DEFAULT '',
-  lastestblog               VARCHAR(500) NOT NULL DEFAULT '',
-  updated_at                DATETIME,
-  updated_by                VARCHAR(100),
-  UNIQUE KEY uq_location (location)
-);
-
-CREATE TABLE dm_sections (
-  id              INT AUTO_INCREMENT PRIMARY KEY,
-  location        VARCHAR(50)  NOT NULL,
-  section_id      VARCHAR(100) NOT NULL,
-  section_title   VARCHAR(500) NOT NULL DEFAULT '',
-  component_type  ENUM('Leadership','PostGraduate','Certification','College') NOT NULL,
-  sort_order      INT          NOT NULL DEFAULT 1,
-  updated_at      DATETIME,
-  UNIQUE KEY uq_loc_sec (location, section_id)
-);
-
-CREATE TABLE dm_courses (
-  id             INT AUTO_INCREMENT PRIMARY KEY,
-  section_db_id  INT          NOT NULL,
-  course_key     VARCHAR(100) NOT NULL DEFAULT '',
-  title          VARCHAR(500) NOT NULL DEFAULT '',
-  button_text    VARCHAR(100) NOT NULL DEFAULT 'View Course',
-  thumb          VARCHAR(500) NOT NULL DEFAULT '',
-  button_link    VARCHAR(500) NOT NULL DEFAULT '',
-  sort_order     INT          NOT NULL DEFAULT 1,
-  updated_at     DATETIME,
-  updated_by     VARCHAR(100),
-  INDEX (section_db_id)
-);
-
-CREATE TABLE dm_course_tags (
-  id         INT AUTO_INCREMENT PRIMARY KEY,
-  course_id  INT          NOT NULL,
-  tag        VARCHAR(200) NOT NULL DEFAULT '',
-  sort_order INT          NOT NULL DEFAULT 1,
-  INDEX (course_id)
-);
-
-CREATE TABLE dm_course_features (
-  id         INT AUTO_INCREMENT PRIMARY KEY,
-  course_id  INT          NOT NULL,
-  feature    VARCHAR(500) NOT NULL DEFAULT '',
-  sort_order INT          NOT NULL DEFAULT 1,
-  INDEX (course_id)
-);
-
-CREATE TABLE dm_faqs (
-  id         INT AUTO_INCREMENT PRIMARY KEY,
-  location   VARCHAR(50)  NOT NULL,
-  question   TEXT         NOT NULL,
-  answer     TEXT         NOT NULL DEFAULT '',
-  sort_order INT          NOT NULL DEFAULT 1,
-  updated_at DATETIME,
-  updated_by VARCHAR(100),
-  INDEX (location)
-);
-
-CREATE TABLE dm_schemas (
-  id          INT AUTO_INCREMENT PRIMARY KEY,
-  location    VARCHAR(50)  NOT NULL,
-  schema_json LONGTEXT     NOT NULL DEFAULT '[]',
-  updated_at  DATETIME,
-  updated_by  VARCHAR(100),
-  UNIQUE KEY uq_location (location)
-);
-
-*/
