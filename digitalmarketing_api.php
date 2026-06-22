@@ -110,6 +110,7 @@ try {
             'leadershipsubheading'    => $row['leadershipsubheading']    ?? '',
             'postgraduationsubheading'=> $row['postgraduationsubheading']?? '',
             'certificationsubheading' => $row['certificationsubheading'] ?? '',
+            'bannerheading'        => $row['bannerheading']        ?? '',
             'bannersubheading'        => $row['bannersubheading']        ?? '',
             'successstoriesheading'   => $row['successstoriesheading']   ?? '',
             'successstoriessubheading'=> $row['successstoriessubheading']?? '',
@@ -361,6 +362,10 @@ try {
         <div class="field-row">
           <label>Certification Subheading</label>
           <textarea id="dm-certificationsubheading" rows="2"><?= htmlspecialchars($content['certificationsubheading'] ?? '') ?></textarea>
+        </div>
+        <div class="field-row">
+          <label>Banner Heading</label>
+          <textarea id="dm-bannerheading" rows="2"><?= htmlspecialchars($content['bannerheading'] ?? '') ?></textarea>
         </div>
         <div class="field-row">
           <label>Banner Subheading</label>
@@ -910,8 +915,7 @@ try {
         if (e.target.closest('[data-action="save-content"]')) {
             var fd = new FormData();
             fd.append('location', location);
-            ['leadershipsubheading','postgraduationsubheading','certificationsubheading',
-             'bannersubheading','successstoriesheading','successstoriessubheading',
+            ['leadershipsubheading','postgraduationsubheading','certificationsubheading','bannerheading','bannersubheading','successstoriesheading','successstoriessubheading',
              'guestfaculty','communitymeetupslider','lastestblog','insideda360heading'].forEach(function(k) {
                 var el = document.getElementById('dm-' + k);
                 fd.append(k, el ? el.value.trim() : '');
@@ -1269,8 +1273,7 @@ JSCODE;
         $location = trim($_POST['location'] ?? '');
         if (!in_array($location, $LOCS, true)) { echo json_encode(['success'=>false,'message'=>'Invalid location']); exit; }
 
-        $fields = ['leadershipsubheading','postgraduationsubheading','certificationsubheading',
-                   'bannersubheading','successstoriesheading','successstoriessubheading',
+        $fields = ['leadershipsubheading','postgraduationsubheading','certificationsubheading','bannerheading','bannersubheading','successstoriesheading','successstoriessubheading',
                    'guestfaculty','communitymeetupslider','lastestblog','insideda360heading'];
         $values = [];
         foreach ($fields as $f) $values[$f] = trim($_POST[$f] ?? '');
