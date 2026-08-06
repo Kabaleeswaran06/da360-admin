@@ -16,6 +16,8 @@
 
 require_once __DIR__ . '/config/db.php';
 
+use Shuchkin\SimpleXLS;
+
 $courses = [
     1  => 'Leadership in Digital Marketing, AI & Entrepreneurship',
     2  => 'Social Content Creator & Video Production',
@@ -81,90 +83,94 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (empty($errors)) {
         require_once $simpleXlsPath;
 
-        $xls = SimpleXLS::parse($_FILES['xls_file']['tmp_name']);
-
-        if (!$xls) {
-            $errors[] = 'Could not read the .xls file: ' . SimpleXLS::parseError();
+        if (!class_exists(SimpleXLS::class)) {
+            $errors[] = 'SimpleXLS.php was loaded, but the class could not be found.';
         } else {
-            // rows() returns 0-indexed 2D array
-            $data = $xls->rows();
+            $xls = SimpleXLS::parse($_FILES['xls_file']['tmp_name']);
 
-            if (count($data) < 3) {
-                $errors[] = 'Excel file must have at least 3 rows (category header, sub-header, data).';
+            if (!$xls) {
+                $errors[] = 'Could not read the .xls file: ' . SimpleXLS::parseError();
             } else {
-                // ── Row 0: category headers ───────────────────────────────────
-                $categoryRow    = array_map(fn($v) => strtolower(trim((string)$v)), $data[0]);
-                $catQuestionCol = []; // category => question col index
+                // rows() returns 0-indexed 2D array
+                $data = $xls->rows();
 
-                foreach ($categoryRow as $colIdx => $cellVal) {
-                    if ($cellVal !== '' && isset($categoryAliases[$cellVal])) {
-                        $cat = $categoryAliases[$cellVal];
-                        if (!isset($catQuestionCol[$cat])) {
-                            $catQuestionCol[$cat] = $colIdx;
-                        }
-                    }
-                }
-
-                if (empty($catQuestionCol)) {
-                    $errors[] = 'No valid category headers found in Row 1. Expected: PROGRAM, DELIVERY, PLACEMENT, CERTIFICATION, FEES';
+                if (count($data) < 3) {
+                    $errors[] = 'Excel file must have at least 3 rows (category header, sub-header, data).';
                 } else {
-                    // ── Rows 2+: data ─────────────────────────────────────────
-                    $grouped = [];
-                    for ($rowIdx = 2; $rowIdx < count($data); $rowIdx++) {
-                        $row = array_map(fn($v) => trim((string)$v), $data[$rowIdx]);
-                        foreach ($catQuestionCol as $cat => $qCol) {
-                            $aCol     = $qCol + 1;
-                            $question = $row[$qCol] ?? '';
-                            $answer   = $row[$aCol] ?? '';
-                            if ($question === '' && $answer === '') continue;
-                            $grouped[$cat][] = ['question' => $question, 'answer' => $answer];
+                    // ── Row 0: category headers ───────────────────────────────────
+                    $categoryRow    = array_map(fn($v) => strtolower(trim((string)$v)), $data[0]);
+                    $catQuestionCol = []; // category => question col index
+
+                    foreach ($categoryRow as $colIdx => $cellVal) {
+                        if ($cellVal !== '' && isset($categoryAliases[$cellVal])) {
+                            $cat = $categoryAliases[$cellVal];
+                            if (!isset($catQuestionCol[$cat])) {
+                                $catQuestionCol[$cat] = $colIdx;
+                            }
                         }
                     }
 
-                    if (empty($grouped)) {
-                        $errors[] = 'No data rows found after the header rows.';
+                    if (empty($catQuestionCol)) {
+                        $errors[] = 'No valid category headers found in Row 1. Expected: PROGRAM, DELIVERY, PLACEMENT, CERTIFICATION, FEES';
                     } else {
-                        try {
-                            $db  = getDB();
-                            $sql = "
-                                INSERT INTO course_faqs
-                                    (course_id, location_id, category, sort_order, question, answer, is_active, created_at, updated_at)
-                                VALUES
-                                    (:course_id, :location_id, :category, :sort_order, :question, :answer, 1, NOW(), NOW())
-                                ON DUPLICATE KEY UPDATE
-                                    question   = VALUES(question),
-                                    answer     = VALUES(answer),
-                                    is_active  = 1,
-                                    updated_at = NOW()
-                            ";
-                            $stmt  = $db->prepare($sql);
-                            $total = 0;
-
-                            foreach ($grouped as $cat => $items) {
-                                $items     = array_slice($items, 0, 10);
-                                $sortOrder = 1;
-                                foreach ($items as $item) {
-                                    $stmt->execute([
-                                        'course_id'   => $courseId,
-                                        'location_id' => $locationId,
-                                        'category'    => $cat,
-                                        'sort_order'  => $sortOrder,
-                                        'question'    => $item['question'],
-                                        'answer'      => $item['answer'],
-                                    ]);
-                                    $sortOrder++;
-                                    $total++;
-                                }
-                                $success[] = ['cat' => $cat, 'count' => count($items)];
+                        // ── Rows 2+: data ─────────────────────────────────────────
+                        $grouped = [];
+                        for ($rowIdx = 2; $rowIdx < count($data); $rowIdx++) {
+                            $row = array_map(fn($v) => trim((string)$v), $data[$rowIdx]);
+                            foreach ($catQuestionCol as $cat => $qCol) {
+                                $aCol     = $qCol + 1;
+                                $question = $row[$qCol] ?? '';
+                                $answer   = $row[$aCol] ?? '';
+                                if ($question === '' && $answer === '') continue;
+                                $grouped[$cat][] = ['question' => $question, 'answer' => $answer];
                             }
+                        }
 
-                            $result = [
-                                'total'    => $total,
-                                'course'   => $courses[$courseId],
-                                'location' => $locations[$locationId],
-                            ];
-                        } catch (Exception $e) {
-                            $errors[] = 'DB Error: ' . $e->getMessage();
+                        if (empty($grouped)) {
+                            $errors[] = 'No data rows found after the header rows.';
+                        } else {
+                            try {
+                                $db  = getDB();
+                                $sql = "
+                                    INSERT INTO course_faqs
+                                        (course_id, location_id, category, sort_order, question, answer, is_active, created_at, updated_at)
+                                    VALUES
+                                        (:course_id, :location_id, :category, :sort_order, :question, :answer, 1, NOW(), NOW())
+                                    ON DUPLICATE KEY UPDATE
+                                        question   = VALUES(question),
+                                        answer     = VALUES(answer),
+                                        is_active  = 1,
+                                        updated_at = NOW()
+                                ";
+                                $stmt  = $db->prepare($sql);
+                                $total = 0;
+
+                                foreach ($grouped as $cat => $items) {
+                                    $items     = array_slice($items, 0, 10);
+                                    $sortOrder = 1;
+                                    foreach ($items as $item) {
+                                        $stmt->execute([
+                                            'course_id'   => $courseId,
+                                            'location_id' => $locationId,
+                                            'category'    => $cat,
+                                            'sort_order'  => $sortOrder,
+                                            'question'    => $item['question'],
+                                            'answer'      => $item['answer'],
+                                        ]);
+                                        $sortOrder++;
+                                        $total++;
+                                    }
+                                    $success[] = ['cat' => $cat, 'count' => count($items)];
+                                }
+
+                                $result = [
+                                    'total'    => $total,
+                                    'course'   => $courses[$courseId],
+                                    'location' => $locations[$locationId],
+                                ];
+                            } catch (Exception $e) {
+                                $errors[] = 'DB Error: ' . $e->getMessage();
+                            }
                         }
                     }
                 }
