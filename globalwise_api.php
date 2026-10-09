@@ -225,7 +225,7 @@ try {
         $stmt = $db->query("SELECT id, name, company_name, previous_role, package_lpa, new_role, profile_image, company_logo, sort_order FROM global_success_stories ORDER BY sort_order");
         $stories = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        // Life Videos (4 fixed slots)
+        // Life Videos (show the original four slots, plus any additional saved slides)
         $stmt = $db->query("SELECT id, slot, title, img, video_url FROM global_life_videos ORDER BY slot");
         $lifeVideos = $stmt->fetchAll(PDO::FETCH_ASSOC);
         $lvMap = [];
@@ -421,7 +421,8 @@ try {
   <!-- TAB 4 — LIFE @ DA360 -->
   <div class="tab-pane" id="tab-pane-lifevideo">
     <div class="info-card">
-      <div class="info-card-title">🎥 Life @ DA360 Videos (4 fixed slots)</div>
+      <div class="info-card-title">🎥 Life @ DA360 Videos</div>
+      <div id="lifevideos-container">
       <?php foreach ($lvMap as $slot => $lv): ?>
       <div style="border:1.5px solid #e2e8f0;border-radius:8px;padding:16px;margin-bottom:14px;" data-lv-slot="<?= $slot ?>" data-lv-id="<?= (int)$lv['id'] ?>">
         <div class="slot-label">Slide <?= $slot ?></div>
@@ -434,8 +435,13 @@ try {
           <input type="hidden" class="lv-img-path" value="<?= htmlspecialchars($lv['img']) ?>">
         </div>
         <button class="btn btn-success btn-sm" data-action="save-lifevideo">💾 Save Slide <?= $slot ?></button>
+        <?php if ((int)$slot > 4): ?>
+        <button class="btn btn-danger btn-sm" data-action="delete-lifevideo">🗑 Delete Slide <?= $slot ?></button>
+        <?php endif; ?>
       </div>
       <?php endforeach; ?>
+      </div>
+      <button class="btn btn-plus" data-action="add-lifevideo">＋ Add Life @ DA360 Video</button>
     </div>
   </div>
 
@@ -946,6 +952,36 @@ try {
       apiPost({ _action:'save_lifevideo', slot:slotEl.dataset.lvSlot, title:slotEl.querySelector('.lv-title').value, img:slotEl.querySelector('.lv-img-path').value, video_url:slotEl.querySelector('.lv-video-url').value }, btn, function (d) { slotEl.dataset.lvId = d.id || slotEl.dataset.lvId; });
     }
 
+    if (action === 'add-lifevideo') {
+      var container = root.querySelector('#lifevideos-container');
+      var slots = Array.prototype.map.call(container.querySelectorAll('[data-lv-slot]'), function (slide) {
+        return parseInt(slide.dataset.lvSlot, 10) || 0;
+      });
+      var slot = Math.max.apply(null, slots) + 1;
+      var div = document.createElement('div');
+      div.style.cssText = 'border:1.5px solid #e2e8f0;border-radius:8px;padding:16px;margin-bottom:14px;';
+      div.dataset.lvSlot = slot;
+      div.dataset.lvId = '0';
+      div.innerHTML = '<div class="slot-label">Slide '+slot+'</div>'
+        +'<div class="field-row"><label>Title</label><input type="text" class="lv-title" placeholder="e.g. AI IN DIGITAL MARKETING BOOTCAMP"></div>'
+        +'<div class="field-row"><label>Video URL</label><input type="url" class="lv-video-url" placeholder="https://asset.digitalacademy360.com/..."></div>'
+        +'<div class="field-row"><label>Thumbnail Image</label><img src="" class="img-preview-lg lv-img-preview" style="display:none;" alt="thumb"><input type="file" class="lv-img-file" accept="image/*" style="margin-top:4px;"><input type="hidden" class="lv-img-path" value=""></div>'
+        +'<button class="btn btn-success btn-sm" data-action="save-lifevideo">💾 Save Slide '+slot+'</button> '
+        +'<button class="btn btn-danger btn-sm" data-action="delete-lifevideo">🗑 Delete Slide '+slot+'</button>';
+      container.appendChild(div);
+      wireFileInput(div, '.lv-img-file', '.lv-img-preview', '.lv-img-path');
+    }
+
+    if (action === 'delete-lifevideo') {
+      var slide = btn.closest('[data-lv-slot]');
+      if (!confirm('Delete Life @ DA360 Slide '+slide.dataset.lvSlot+'?')) return;
+      if (parseInt(slide.dataset.lvId, 10) === 0) {
+        slide.remove();
+      } else {
+        apiPost({ _action:'delete_lifevideo', slot:slide.dataset.lvSlot }, btn, function () { slide.remove(); });
+      }
+    }
+
     // ── GUEST FACULTY ─────────────────────────────────────────────────────
     if (action === 'save-guestfaculty') {
       var block = btn.closest('.item-block');
@@ -1349,10 +1385,17 @@ GWJS;
         $slot=(int)($_POST['slot']??0); $title=trim($_POST['title']??'');
         $img=trim($_POST['img']??''); $videoUrl=trim($_POST['video_url']??'');
         $updatedBy=$_SESSION['da360_user']['name']??$_SESSION['da360_user']['username']??'unknown';
-        if ($slot<1||$slot>4){echo json_encode(['success'=>false,'message'=>'Invalid slot']);exit;}
+        if ($slot<1){echo json_encode(['success'=>false,'message'=>'Invalid slot']);exit;}
         $stmt=$db->prepare("INSERT INTO global_life_videos (slot,title,img,video_url,updated_at,updated_by) VALUES (?,?,?,?,NOW(),?) ON DUPLICATE KEY UPDATE title=VALUES(title),img=VALUES(img),video_url=VALUES(video_url),updated_at=NOW(),updated_by=VALUES(updated_by)");
         $stmt->execute([$slot,$title,$img,$videoUrl,$updatedBy]);
         echo json_encode(['success'=>true,'id'=>(int)$db->lastInsertId()?:null,'message'=>'Life video saved']); exit;
+    }
+    if ($action === 'delete_lifevideo' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+        $slot=(int)($_POST['slot']??0);
+        if ($slot<=4){echo json_encode(['success'=>false,'message'=>'Only slides after slide 4 can be deleted']);exit;}
+        $stmt=$db->prepare("DELETE FROM global_life_videos WHERE slot=? LIMIT 1");
+        $stmt->execute([$slot]);
+        echo json_encode(['success'=>$stmt->rowCount()>0,'message'=>$stmt->rowCount()>0?'Life video deleted':'Life video not found']); exit;
     }
 
     // ══════════════════════════════════════════════════════════════════════════
