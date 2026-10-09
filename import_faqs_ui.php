@@ -1,14 +1,16 @@
 <?php
 /**
- * DA360 — FAQ Importer UI (Excel 97-2003 .xls)
+ * DA360 — FAQ Importer UI (.xls, .xlsx, .csv)
  * Place in project root (same level as config/)
  *
- * REQUIREMENT — no composer needed, just one file:
- *   Download SimpleXLS.php from:
- *   https://raw.githubusercontent.com/shuchkin/simplexls/master/src/SimpleXLS.php
- *   Place it in the same folder as this file.
+ * REQUIREMENT
+ *   - No composer needed.
+ *   - .xls support requires SimpleXLS.php.
+ *   - Download from:
+ *       https://raw.githubusercontent.com/shuchkin/simplexls/master/src/SimpleXLS.php
+ *   - Place it in the same folder as this file.
  *
- * EXCEL FORMAT (.xls):
+ * EXCEL / CSV FORMAT:
  *   Row 1 : PROGRAM | | DELIVERY | | PLACEMENT | | CERTIFICATION | | FEES
  *   Row 2 : Question | Answer | Question | Answer | ...  (skipped)
  *   Row 3+: data (max 10 rows per category)
@@ -23,12 +25,14 @@ $courses = [
     2  => 'Social Content Creator & Video Production',
     3  => 'PGCP DM',
     4  => 'PGCP PM',
-    5  => 'Skill Diploma Program',
-    6  => 'Youtube & Instagram',
-    7  => 'Performance Marketing & MarTech',
-    8  => 'BBA',
-    9  => 'MBA',
-    10 => 'AI Automation Vibe Marketing',
+    5  => 'PGCP in Social Media Training & Influencer Marketing',
+    6  => 'Skill Diploma Program',
+    7  => 'Youtube & Instagram',
+    8  => 'Performance Marketing & MarTech',
+    9  => 'Certification Course for Beginners in AI for DM',
+    10 => 'BBA',
+    11 => 'MBA',
+    12 => 'AI Automation Vibe Marketing',
 ];
 
 $locations = [
@@ -66,118 +70,423 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $courseId   = (int)($_POST['course_id']   ?? 0);
     $locationId = (int)($_POST['location_id'] ?? 0);
 
-    if (!$courseId   || !isset($courses[$courseId]))     $errors[] = 'Please select a valid Course.';
-    if (!$locationId || !isset($locations[$locationId])) $errors[] = 'Please select a valid Location.';
-    if (empty($_FILES['xls_file']['tmp_name']))           $errors[] = 'Please upload an Excel file.';
+    if (empty($_FILES['xls_file']['tmp_name'])) {
+        $errors[] = 'Please upload a file.';
+    }
 
     $uploadedName = $_FILES['xls_file']['name'] ?? '';
     $ext = strtolower(pathinfo($uploadedName, PATHINFO_EXTENSION));
-    if (!empty($uploadedName) && $ext !== 'xls') {
-        $errors[] = 'Only .xls (Excel 97-2003) files are accepted.';
+    $allowedExts = ['xls', 'xlsx', 'csv'];
+
+    if (!empty($uploadedName) && !in_array($ext, $allowedExts, true)) {
+        $errors[] = 'Only .xls, .xlsx, and .csv files are accepted.';
     }
 
-    if ($libMissing) {
-        $errors[] = 'SimpleXLS.php not found — see the setup instructions above.';
+    if ($ext === 'xls' && $libMissing) {
+        $errors[] = 'SimpleXLS.php not found — required for .xls support.';
+    }
+
+    $bulkCsvBlocks = [];
+    $rawCsvRows = null;
+    $useManualSelection = true;
+
+    if ($ext === 'csv' && empty($errors)) {
+        $rawCsvRows = parseCsvFile($_FILES['xls_file']['tmp_name'], $errors);
+        if ($rawCsvRows !== null && empty($errors)) {
+            $bulkCsvBlocks = extractCsvBlocksFromCsvRows($rawCsvRows, $courses, $locations, $errors);
+        }
+    }
+
+    if (!empty($bulkCsvBlocks)) {
+        $useManualSelection = false;
+    }
+
+    if ($useManualSelection) {
+        if (!$courseId || !isset($courses[$courseId])) {
+            $errors[] = 'Please select a valid Course.';
+        }
+        if (!$locationId || !isset($locations[$locationId])) {
+            $errors[] = 'Please select a valid Location.';
+        }
     }
 
     if (empty($errors)) {
-        require_once $simpleXlsPath;
+        $data = null;
 
-        if (!class_exists(SimpleXLS::class)) {
-            $errors[] = 'SimpleXLS.php was loaded, but the class could not be found.';
-        } else {
-            $xls = SimpleXLS::parse($_FILES['xls_file']['tmp_name']);
+        if ($ext === 'xls') {
+            require_once $simpleXlsPath;
 
-            if (!$xls) {
-                $errors[] = 'Could not read the .xls file: ' . SimpleXLS::parseError();
+            if (!class_exists(SimpleXLS::class)) {
+                $errors[] = 'SimpleXLS.php was loaded, but the class could not be found.';
             } else {
-                // rows() returns 0-indexed 2D array
-                $data = $xls->rows();
+                $xls = SimpleXLS::parse($_FILES['xls_file']['tmp_name']);
 
-                if (count($data) < 3) {
-                    $errors[] = 'Excel file must have at least 3 rows (category header, sub-header, data).';
+                if (!$xls) {
+                    $errors[] = 'Could not read the .xls file: ' . SimpleXLS::parseError();
                 } else {
-                    // ── Row 0: category headers ───────────────────────────────────
-                    $categoryRow    = array_map(fn($v) => strtolower(trim((string)$v)), $data[0]);
-                    $catQuestionCol = []; // category => question col index
-
-                    foreach ($categoryRow as $colIdx => $cellVal) {
-                        if ($cellVal !== '' && isset($categoryAliases[$cellVal])) {
-                            $cat = $categoryAliases[$cellVal];
-                            if (!isset($catQuestionCol[$cat])) {
-                                $catQuestionCol[$cat] = $colIdx;
-                            }
-                        }
-                    }
-
-                    if (empty($catQuestionCol)) {
-                        $errors[] = 'No valid category headers found in Row 1. Expected: PROGRAM, DELIVERY, PLACEMENT, CERTIFICATION, FEES';
-                    } else {
-                        // ── Rows 2+: data ─────────────────────────────────────────
-                        $grouped = [];
-                        for ($rowIdx = 2; $rowIdx < count($data); $rowIdx++) {
-                            $row = array_map(fn($v) => trim((string)$v), $data[$rowIdx]);
-                            foreach ($catQuestionCol as $cat => $qCol) {
-                                $aCol     = $qCol + 1;
-                                $question = $row[$qCol] ?? '';
-                                $answer   = $row[$aCol] ?? '';
-                                if ($question === '' && $answer === '') continue;
-                                $grouped[$cat][] = ['question' => $question, 'answer' => $answer];
-                            }
-                        }
-
-                        if (empty($grouped)) {
-                            $errors[] = 'No data rows found after the header rows.';
-                        } else {
-                            try {
-                                $db  = getDB();
-                                $sql = "
-                                    INSERT INTO course_faqs
-                                        (course_id, location_id, category, sort_order, question, answer, is_active, created_at, updated_at)
-                                    VALUES
-                                        (:course_id, :location_id, :category, :sort_order, :question, :answer, 1, NOW(), NOW())
-                                    ON DUPLICATE KEY UPDATE
-                                        question   = VALUES(question),
-                                        answer     = VALUES(answer),
-                                        is_active  = 1,
-                                        updated_at = NOW()
-                                ";
-                                $stmt  = $db->prepare($sql);
-                                $total = 0;
-
-                                foreach ($grouped as $cat => $items) {
-                                    $items     = array_slice($items, 0, 10);
-                                    $sortOrder = 1;
-                                    foreach ($items as $item) {
-                                        $stmt->execute([
-                                            'course_id'   => $courseId,
-                                            'location_id' => $locationId,
-                                            'category'    => $cat,
-                                            'sort_order'  => $sortOrder,
-                                            'question'    => $item['question'],
-                                            'answer'      => $item['answer'],
-                                        ]);
-                                        $sortOrder++;
-                                        $total++;
-                                    }
-                                    $success[] = ['cat' => $cat, 'count' => count($items)];
-                                }
-
-                                $result = [
-                                    'total'    => $total,
-                                    'course'   => $courses[$courseId],
-                                    'location' => $locations[$locationId],
-                                ];
-                            } catch (Exception $e) {
-                                $errors[] = 'DB Error: ' . $e->getMessage();
-                            }
-                        }
-                    }
+                    $data = $xls->rows();
                 }
+            }
+        } elseif ($ext === 'xlsx') {
+            if (!extension_loaded('zip')) {
+                $errors[] = 'PHP zip extension is required to read .xlsx files.';
+            } elseif (!extension_loaded('xml')) {
+                $errors[] = 'PHP xml extension is required to read .xlsx files.';
+            } else {
+                $data = parseXlsxFile($_FILES['xls_file']['tmp_name'], $errors);
+            }
+        } elseif ($ext === 'csv') {
+            if ($rawCsvRows === null) {
+                $rawCsvRows = parseCsvFile($_FILES['xls_file']['tmp_name'], $errors);
+            }
+            $data = $rawCsvRows;
+        }
+
+        if (empty($errors)) {
+            if (!$useManualSelection && !empty($bulkCsvBlocks)) {
+                $result = importCsvBlocks($bulkCsvBlocks, $categoryAliases, $success, $errors);
+            } elseif ($data !== null) {
+                $result = importFaqData($data, $courseId, $locationId, $categoryAliases, $courses, $locations, $success, $errors);
             }
         }
     }
 }
+
+function parseCsvFile(string $filePath, array &$errors): ?array
+{
+    $rows = [];
+    if (($handle = fopen($filePath, 'r')) === false) {
+        $errors[] = 'Unable to open the uploaded CSV file.';
+        return null;
+    }
+
+    while (($row = fgetcsv($handle)) !== false) {
+        $rows[] = $row;
+    }
+    fclose($handle);
+
+    return $rows;
+}
+
+function extractCsvBlocksFromCsvRows(array $rows, array $courses, array $locations, array &$errors): array
+{
+    $blocks = [];
+    $currentCourseId = null;
+    $currentLocationId = null;
+    $currentBlock = [];
+
+    foreach ($rows as $rowIndex => $row) {
+        $courseIdValue = trim((string)($row[0] ?? ''));
+        $locationValue = trim((string)($row[1] ?? ''));
+        $isNumericCourseId = ctype_digit($courseIdValue) && $courseIdValue !== '';
+        $hasLocationValue = $locationValue !== '';
+
+        // New block metadata row: course_id, location_id or course_id, location_name
+        if ($isNumericCourseId && $hasLocationValue) {
+            if ($currentCourseId !== null && $currentLocationId !== null && !empty($currentBlock)) {
+                $blocks[] = [
+                    'course_id'   => $currentCourseId,
+                    'location_id' => $currentLocationId,
+                    'rows'        => $currentBlock,
+                ];
+                $currentBlock = [];
+            }
+
+            $foundCourse = null;
+            $foundLocation = null;
+            $courseId = (int)$courseIdValue;
+
+            if (isset($courses[$courseId])) {
+                $foundCourse = $courseId;
+            } else {
+                $errors[] = "Unable to map course_id '{$courseId}' on CSV row " . ($rowIndex + 1) . ".";
+            }
+
+            if (ctype_digit($locationValue)) {
+                $locationId = (int)$locationValue;
+                if (isset($locations[$locationId])) {
+                    $foundLocation = $locationId;
+                } else {
+                    $errors[] = "Unable to map location_id '{$locationId}' on CSV row " . ($rowIndex + 1) . ".";
+                }
+            } else {
+                foreach ($locations as $lid => $name) {
+                    if (strcasecmp($name, $locationValue) === 0) {
+                        $foundLocation = $lid;
+                        break;
+                    }
+                }
+                if ($foundLocation === null) {
+                    $errors[] = "Unable to map location name '{$locationValue}' on CSV row " . ($rowIndex + 1) . ".";
+                }
+            }
+
+            if ($foundCourse !== null && $foundLocation !== null) {
+                $currentCourseId = $foundCourse;
+                $currentLocationId = $foundLocation;
+            }
+
+            continue;
+        }
+
+        if ($currentCourseId !== null && $currentLocationId !== null) {
+            $currentBlock[] = $row;
+        }
+    }
+
+    if ($currentCourseId !== null && $currentLocationId !== null && !empty($currentBlock)) {
+        $blocks[] = [
+            'course_id'   => $currentCourseId,
+            'location_id' => $currentLocationId,
+            'rows'        => $currentBlock,
+        ];
+    }
+
+    if (empty($blocks) && empty($errors)) {
+        $errors[] = 'No course/location blocks were detected in the CSV file.';
+    }
+
+    return $blocks;
+}
+
+function importCsvBlocks(array $blocks, array $categoryAliases, array &$success, array &$errors): ?array
+{
+    $result = ['total' => 0, 'blocks' => []];
+
+    foreach ($blocks as $block) {
+        $rows = $block['rows'];
+        if (count($rows) < 3) {
+            $errors[] = 'Each block must contain at least 3 rows of data.';
+            continue;
+        }
+
+        $header = array_map(fn($v) => strtolower(trim((string)$v)), $rows[0]);
+        $catQuestionCol = [];
+        foreach ($header as $colIdx => $cell) {
+            if ($cell !== '' && isset($categoryAliases[$cell])) {
+                $cat = $categoryAliases[$cell];
+                if (!isset($catQuestionCol[$cat])) {
+                    $catQuestionCol[$cat] = $colIdx;
+                }
+            }
+        }
+        if (empty($catQuestionCol)) {
+            $errors[] = 'No valid category headers were detected in a block.';
+            continue;
+        }
+
+        $grouped = [];
+        for ($rowIdx = 2; $rowIdx < count($rows); $rowIdx++) {
+            $row = array_map(fn($v) => trim((string)$v), $rows[$rowIdx]);
+            foreach ($catQuestionCol as $cat => $qCol) {
+                $aCol = $qCol + 1;
+                $question = $row[$qCol] ?? '';
+                $answer = $row[$aCol] ?? '';
+                if ($question === '' && $answer === '') {
+                    continue;
+                }
+                $grouped[$cat][] = ['question' => $question, 'answer' => $answer];
+            }
+        }
+
+        if (empty($grouped)) {
+            $errors[] = 'A block contained no FAQ rows.';
+            continue;
+        }
+
+        try {
+            $db  = getDB();
+            $sql = "
+                INSERT INTO course_faqs
+                    (course_id, location_id, category, sort_order, question, answer, is_active, created_at, updated_at)
+                VALUES
+                    (:course_id, :location_id, :category, :sort_order, :question, :answer, 1, NOW(), NOW())
+                ON DUPLICATE KEY UPDATE
+                    question   = VALUES(question),
+                    answer     = VALUES(answer),
+                    is_active  = 1,
+                    updated_at = NOW()
+            ";
+            $stmt = $db->prepare($sql);
+            $total = 0;
+
+            foreach ($grouped as $cat => $items) {
+                $items     = array_slice($items, 0, 10);
+                $sortOrder = 1;
+                foreach ($items as $item) {
+                    $stmt->execute([
+                        'course_id'   => $block['course_id'],
+                        'location_id' => $block['location_id'],
+                        'category'    => $cat,
+                        'sort_order'  => $sortOrder,
+                        'question'    => $item['question'],
+                        'answer'      => $item['answer'],
+                    ]);
+                    $sortOrder++;
+                    $total++;
+                }
+                $success[] = ['cat' => $cat, 'count' => count($items)];
+            }
+
+            $result['total'] += $total;
+            $result['blocks'][] = [
+                'course_id'   => $block['course_id'],
+                'location_id' => $block['location_id'],
+                'count'       => $total,
+            ];
+        } catch (Exception $e) {
+            $errors[] = 'DB Error while importing block: ' . $e->getMessage();
+        }
+    }
+
+    return $result;
+}
+
+function importFaqData(array $data, int $courseId, int $locationId, array $categoryAliases, array $courses, array $locations, array &$success, array &$errors): ?array
+{
+    if (count($data) < 3) {
+        $errors[] = 'File must have at least 3 rows (category header, sub-header, data).';
+        return null;
+    }
+
+    $categoryRow    = array_map(fn($v) => strtolower(trim((string)$v)), $data[0]);
+    $catQuestionCol = [];
+    foreach ($categoryRow as $colIdx => $cellVal) {
+        if ($cellVal !== '' && isset($categoryAliases[$cellVal])) {
+            $cat = $categoryAliases[$cellVal];
+            if (!isset($catQuestionCol[$cat])) {
+                $catQuestionCol[$cat] = $colIdx;
+            }
+        }
+    }
+
+    if (empty($catQuestionCol)) {
+        $errors[] = 'No valid category headers found in Row 1. Expected: PROGRAM, DELIVERY, PLACEMENT, CERTIFICATION, FEES';
+        return null;
+    }
+
+    $grouped = [];
+    for ($rowIdx = 2; $rowIdx < count($data); $rowIdx++) {
+        $row = array_map(fn($v) => trim((string)$v), $data[$rowIdx]);
+        foreach ($catQuestionCol as $cat => $qCol) {
+            $aCol = $qCol + 1;
+            $question = $row[$qCol] ?? '';
+            $answer = $row[$aCol] ?? '';
+            if ($question === '' && $answer === '') {
+                continue;
+            }
+            $grouped[$cat][] = ['question' => $question, 'answer' => $answer];
+        }
+    }
+
+    if (empty($grouped)) {
+        $errors[] = 'No data rows found after the header rows.';
+        return null;
+    }
+
+    try {
+        $db  = getDB();
+        $sql = "
+            INSERT INTO course_faqs
+                (course_id, location_id, category, sort_order, question, answer, is_active, created_at, updated_at)
+            VALUES
+                (:course_id, :location_id, :category, :sort_order, :question, :answer, 1, NOW(), NOW())
+            ON DUPLICATE KEY UPDATE
+                question   = VALUES(question),
+                answer     = VALUES(answer),
+                is_active  = 1,
+                updated_at = NOW()
+        ";
+        $stmt = $db->prepare($sql);
+        $total = 0;
+
+        foreach ($grouped as $cat => $items) {
+            $items     = array_slice($items, 0, 10);
+            $sortOrder = 1;
+            foreach ($items as $item) {
+                $stmt->execute([
+                    'course_id'   => $courseId,
+                    'location_id' => $locationId,
+                    'category'    => $cat,
+                    'sort_order'  => $sortOrder,
+                    'question'    => $item['question'],
+                    'answer'      => $item['answer'],
+                ]);
+                $sortOrder++;
+                $total++;
+            }
+            $success[] = ['cat' => $cat, 'count' => count($items)];
+        }
+
+        return [
+            'total'    => $total,
+            'course'   => $courses[$courseId],
+            'location' => $locations[$locationId],
+        ];
+    } catch (Exception $e) {
+        $errors[] = 'DB Error: ' . $e->getMessage();
+        return null;
+    }
+}
+
+function parseXlsxFile(string $filePath, array &$errors): ?array
+{
+    if (!file_exists($filePath)) {
+        $errors[] = 'Uploaded .xlsx file was not found.';
+        return null;
+    }
+
+    $zip = new ZipArchive();
+    if ($zip->open($filePath) !== true) {
+        $errors[] = 'Could not open .xlsx file as a ZIP archive.';
+        return null;
+    }
+
+    $worksheetName = 'xl/worksheets/sheet1.xml';
+    $sharedStringsName = 'xl/sharedStrings.xml';
+
+    if (!$zip->locateName($worksheetName)) {
+        $errors[] = 'Sheet1 not found in the .xlsx file.';
+        $zip->close();
+        return null;
+    }
+
+    $worksheetXml = $zip->getFromName($worksheetName);
+    $sharedXml = $zip->locateName($sharedStringsName) ? $zip->getFromName($sharedStringsName) : '';
+    $zip->close();
+
+    $sharedStrings = [];
+    if ($sharedXml !== '') {
+        $sharedDom = new DOMDocument();
+        $sharedDom->loadXML($sharedXml);
+        foreach ($sharedDom->getElementsByTagName('si') as $si) {
+            $sharedStrings[] = trim($si->textContent);
+        }
+    }
+
+    $dom = new DOMDocument();
+    $dom->loadXML($worksheetXml);
+    $rows = [];
+    foreach ($dom->getElementsByTagName('row') as $rowNode) {
+        $cells = [];
+        foreach ($rowNode->getElementsByTagName('c') as $cellNode) {
+            $value = '';
+            $type = $cellNode->getAttribute('t');
+            $v = $cellNode->getElementsByTagName('v')->item(0);
+            if ($v) {
+                $value = (string)$v->textContent;
+                if ($type === 's' && isset($sharedStrings[(int)$value])) {
+                    $value = $sharedStrings[(int)$value];
+                }
+            }
+            $cells[] = $value;
+        }
+        $rows[] = $cells;
+    }
+
+    return $rows;
+}
+
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -254,7 +563,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
   <div class="card-header">
     <h1>📥 FAQ Bulk Importer</h1>
-    <p>Upload an Excel 97-2003 (.xls) file — no composer required</p>
+    <p>Upload a .xls, .xlsx or .csv file — no composer required</p>
   </div>
 
   <div class="card-body">
@@ -310,7 +619,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     <!-- Format hint -->
     <div class="hint">
-      <strong>📋 Excel Format — Sheet 1</strong>
+      <strong>📋 Supported upload formats</strong>
+      <div>Accepts <code>.xls</code>, <code>.xlsx</code>, and <code>.csv</code>.</div>
+      <div class="hint-note">For CSV, each block starts with a metadata row: <strong>course_id</strong> in column A and either <strong>location_id</strong> or <strong>location_name</strong> in column B.</div>
+      <div class="hint-note">After metadata, include one header row, one sub-header row, then the FAQ rows.</div>
       <table class="format-table">
         <tr>
           <td class="cat-head" colspan="2">PROGRAM</td>
@@ -326,16 +638,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           <td class="sub-head">Question</td><td class="sub-head">Answer</td>
           <td class="sub-head">Question</td><td class="sub-head">Answer</td>
         </tr>
-        <tr class="data-row">
-          <td>Q1…</td><td>A1…</td><td>Q1…</td><td>A1…</td>
-          <td>Q1…</td><td>A1…</td><td>Q1…</td><td>A1…</td><td>Q1…</td><td>A1…</td>
-        </tr>
-        <tr class="data-row">
-          <td>Q2…</td><td>A2…</td><td>Q2…</td><td>A2…</td>
-          <td>Q2…</td><td>A2…</td><td>Q2…</td><td>A2…</td><td>Q2…</td><td>A2…</td>
-        </tr>
       </table>
-      <div class="hint-note">Max 10 rows per category. Commas inside cells are fine.</div>
+      <div class="hint-note">Use the first content row for the first FAQ entry. Blank question+answer rows are skipped.</div>
+      <div class="hint-note">Example CSV block:</div>
+      <pre class="hint-pre">123,Mumbai
+PROGRAM,DELIVERY,PLACEMENT,CERTIFICATION,FEES
+Question,Answer,Question,Answer,Question,Answer,Question,Answer,Question,Answer
+What is the program?,This program is ...
+How is delivery handled?,Online and classroom
+</pre>
+      <div class="hint-note">Multiple blocks are supported by repeating the metadata row and FAQ block structure.</div>
     </div>
 
     <!-- Form -->
@@ -366,17 +678,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       </div>
 
       <div class="field">
-        <label>Excel File (.xls)</label>
+        <label>Spreadsheet / CSV File</label>
         <div class="file-zone" id="file-zone">
-          <input type="file" name="xls_file" accept=".xls" id="xls-input" required>
+          <input type="file" name="xls_file" accept=".xls,.xlsx,.csv" id="xls-input" required>
           <div class="fz-icon">📊</div>
           <div class="fz-label">Click to upload or drag & drop</div>
-          <div class="fz-sub">.xls (Excel 97-2003) only</div>
+          <div class="fz-sub">.xls, .xlsx, or .csv</div>
           <div class="fz-chosen" id="file-chosen"></div>
         </div>
       </div>
 
-      <button type="submit" class="btn-submit" id="submit-btn" <?= $libMissing ? 'disabled title="Install SimpleXLS.php first"' : '' ?>>
+      <button type="submit" class="btn-submit" id="submit-btn" <?= $libMissing ? 'title=".xls support requires SimpleXLS.php"' : '' ?>>
         ⬆️ Import FAQs
       </button>
     </form>
